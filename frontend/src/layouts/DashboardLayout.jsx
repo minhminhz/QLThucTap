@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationBell from '../components/NotificationBell';
 
 // ─── Navigation config per role ────────────────────────────────────────────────
 const NAV_ITEMS = {
@@ -23,6 +24,7 @@ const NAV_ITEMS = {
   HR: [
     { to: '/hr',              label: 'Tổng quan',       icon: 'bi-grid-1x2-fill' },
     { to: '/hr/positions',    label: 'Vị trí tuyển dụng',icon: 'bi-briefcase-fill' },
+    { to: '/hr/applicants',   label: 'Ứng viên',         icon: 'bi-person-badge-fill' },
     { to: '/hr/applications', label: 'Hồ sơ ứng tuyển',icon: 'bi-file-earmark-person-fill' },
     { to: '/hr/interns',      label: 'Thực tập sinh',   icon: 'bi-mortarboard-fill' },
     { to: '/hr/mentors',      label: 'Mentor',          icon: 'bi-person-video3' },
@@ -534,11 +536,8 @@ export default function DashboardLayout({ children }) {
                 <i className="bi bi-house-fill" />
               </Link>
 
-              {/* Notifications (placeholder) */}
-              <button className="dl-icon-btn" title="Thông báo" style={{ border: 'none' }}>
-                <i className="bi bi-bell-fill" />
-                <span className="badge-dot" />
-              </button>
+              {/* Notifications */}
+              <NotificationBell variant="dashboard" />
 
               {/* User dropdown */}
               <div className="dropdown">

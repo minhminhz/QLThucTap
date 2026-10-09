@@ -64,7 +64,8 @@ CREATE TABLE `users` (
     CONSTRAINT `fk_users_branch` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`) ON DELETE SET NULL,
     CONSTRAINT `fk_users_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE SET NULL,
     INDEX `idx_users_role` (`role`),
-    INDEX `idx_users_branch` (`branch_id`)
+    INDEX `idx_users_branch` (`branch_id`),
+    INDEX `idx_users_role_branch_status` (`role`, `branch_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ====================================================================
@@ -173,3 +174,23 @@ CREATE TABLE `tasks` (
     INDEX `idx_tasks_mentor` (`mentor_id`),
     INDEX `idx_tasks_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: notifications (Thông báo hệ thống giữa các role)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS `notifications` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `sender_id` INT NULL,
+    `title` VARCHAR(255) NOT NULL,
+    `message` TEXT NOT NULL,
+    `type` VARCHAR(50) NOT NULL DEFAULT 'SYSTEM',
+    `link` VARCHAR(255) NULL,
+    `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_notifications_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_notifications_sender` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+    INDEX `idx_notifications_user_read` (`user_id`, `is_read`),
+    INDEX `idx_notifications_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

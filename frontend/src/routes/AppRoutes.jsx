@@ -25,6 +25,7 @@ import MentorTasks from '../pages/mentor/Tasks';
 import HRDashboard from '../pages/hr/Dashboard';
 import HRInterns from '../pages/hr/Interns';
 import HRMentors from '../pages/hr/Mentors';
+import HRApplicants from '../pages/hr/Applicants';
 
 // Admin
 import AdminDashboard from '../pages/admin/Dashboard';
@@ -108,6 +109,11 @@ export default function AppRoutes() {
       <Route path="/hr/mentors" element={
         <RoleRoute roles={['HR']}>
           <HRMentors />
+        </RoleRoute>
+      } />
+      <Route path="/hr/applicants" element={
+        <RoleRoute roles={['HR']}>
+          <HRApplicants />
         </RoleRoute>
       } />
 

@@ -108,6 +108,35 @@ const MentorController = {
                 [final_review, rating || null, intern.id]
             );
             const updated = await InternModel.findById(intern.id);
+
+            // Dispatch notifications to Intern and HR
+            try {
+                const NotificationService = require('../services/notificationService');
+                // 1. Notify Intern
+                if (intern.user_id) {
+                    await NotificationService.notifyUser({
+                        userId: intern.user_id,
+                        senderId: req.user.id,
+                        title: 'Đánh giá tổng kết kỳ thực tập 🏆',
+                        message: `Mentor "${req.user.full_name}" đã hoàn tất đánh giá tổng kết kỳ thực tập của bạn: ${rating ? rating + ' ⭐ - ' : ''}"${final_review}". Chúc mừng bạn đã hoàn thành kỳ thực tập!`,
+                        type: 'INTERNSHIP',
+                        link: '/intern'
+                    });
+                }
+
+                // 2. Notify HRs at branch
+                await NotificationService.notifyHRs({
+                    branchId: intern.branch_id,
+                    senderId: req.user.id,
+                    title: 'Đánh giá tổng kết TTS hoàn tất 🎓',
+                    message: `Mentor "${req.user.full_name}" vừa hoàn tất đánh giá tổng kết cho TTS "${intern.full_name}" (Vị trí: ${intern.position_title || 'Thực tập sinh'}, ${rating ? rating + ' ⭐' : ''}).`,
+                    type: 'INTERNSHIP',
+                    link: '/hr/interns'
+                });
+            } catch (notifyErr) {
+                console.error('Notification error in submitFinalReview:', notifyErr.message);
+            }
+
             return res.status(200).json({ success: true, message: 'Đánh giá tổng kết thành công!', data: updated });
         } catch (err) { next(err); }
     },

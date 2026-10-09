@@ -60,6 +60,23 @@ const TaskController = {
 
             const newTask = await TaskModel.findById(taskId);
 
+            // Notify Intern
+            try {
+                const NotificationService = require('../services/notificationService');
+                if (intern.user_id) {
+                    await NotificationService.notifyUser({
+                        userId: intern.user_id,
+                        senderId: req.user.id,
+                        title: 'Nhiệm vụ mới được giao 📋',
+                        message: `Mentor "${req.user.full_name}" đã giao cho bạn nhiệm vụ: "${title}" (Hạn chót: ${deadline}).`,
+                        type: 'TASK',
+                        link: '/intern/tasks'
+                    });
+                }
+            } catch (notifyErr) {
+                console.error('Notification error in createTask:', notifyErr.message);
+            }
+
             return res.status(201).json({
                 success: true,
                 message: 'Giao task cho thực tập sinh thành công!',
@@ -98,6 +115,23 @@ const TaskController = {
             });
 
             const updatedTask = await TaskModel.findById(task.id);
+
+            // Notify Intern on update
+            try {
+                const NotificationService = require('../services/notificationService');
+                if (task.intern_user_id) {
+                    await NotificationService.notifyUser({
+                        userId: task.intern_user_id,
+                        senderId: req.user.id,
+                        title: 'Cập nhật thông tin nhiệm vụ 📝',
+                        message: `Mentor "${req.user.full_name}" đã cập nhật nhiệm vụ: "${updatedTask.title}".`,
+                        type: 'TASK',
+                        link: '/intern/tasks'
+                    });
+                }
+            } catch (notifyErr) {
+                console.error('Notification error in updateTask:', notifyErr.message);
+            }
 
             return res.status(200).json({
                 success: true,
@@ -175,6 +209,34 @@ const TaskController = {
 
             await TaskModel.review(task.id, status, feedback);
             const updatedTask = await TaskModel.findById(task.id);
+
+            // Notify Intern of review result
+            try {
+                const NotificationService = require('../services/notificationService');
+                if (task.intern_user_id) {
+                    if (status === 'COMPLETED') {
+                        await NotificationService.notifyUser({
+                            userId: task.intern_user_id,
+                            senderId: req.user.id,
+                            title: 'Nhiệm vụ đã được duyệt hoàn thành ✅',
+                            message: `Mentor "${req.user.full_name}" đã đánh giá HOÀN THÀNH nhiệm vụ: "${task.title}".${feedback ? ' Nhận xét: ' + feedback : ''}`,
+                            type: 'TASK',
+                            link: '/intern/tasks'
+                        });
+                    } else if (status === 'REJECTED') {
+                        await NotificationService.notifyUser({
+                            userId: task.intern_user_id,
+                            senderId: req.user.id,
+                            title: 'Yêu cầu chỉnh sửa lại nhiệm vụ ⚠️',
+                            message: `Mentor "${req.user.full_name}" yêu cầu làm lại nhiệm vụ: "${task.title}". Góp ý: ${feedback}`,
+                            type: 'TASK',
+                            link: '/intern/tasks'
+                        });
+                    }
+                }
+            } catch (notifyErr) {
+                console.error('Notification error in reviewTask:', notifyErr.message);
+            }
 
             return res.status(200).json({
                 success: true,
@@ -327,6 +389,23 @@ const TaskController = {
             // If submitting, use submitResult to save content
             if (status === 'SUBMITTED') {
                 await TaskModel.submitResult(task.id, submission_content.trim());
+
+                // Notify Mentor
+                try {
+                    const NotificationService = require('../services/notificationService');
+                    if (task.mentor_id) {
+                        await NotificationService.notifyUser({
+                            userId: task.mentor_id,
+                            senderId: req.user.id,
+                            title: 'Thực tập sinh đã nộp bài 🚀',
+                            message: `Thực tập sinh "${req.user.full_name}" vừa nộp kết quả thực hiện nhiệm vụ: "${task.title}". Vui lòng kiểm tra và đánh giá.`,
+                            type: 'TASK',
+                            link: '/mentor/tasks'
+                        });
+                    }
+                } catch (notifyErr) {
+                    console.error('Notification error in updateTaskStatus submit:', notifyErr.message);
+                }
             } else {
                 await TaskModel.updateStatus(task.id, status);
             }
@@ -371,6 +450,23 @@ const TaskController = {
 
             await TaskModel.submitResult(task.id, submission_content.trim());
             const updated = await TaskModel.findById(task.id);
+
+            // Notify Mentor
+            try {
+                const NotificationService = require('../services/notificationService');
+                if (task.mentor_id) {
+                    await NotificationService.notifyUser({
+                        userId: task.mentor_id,
+                        senderId: req.user.id,
+                        title: 'Thực tập sinh đã nộp báo cáo kết quả 🚀',
+                        message: `Thực tập sinh "${req.user.full_name}" vừa nộp kết quả cho nhiệm vụ: "${task.title}". Vui lòng kiểm tra và đánh giá.`,
+                        type: 'TASK',
+                        link: '/mentor/tasks'
+                    });
+                }
+            } catch (notifyErr) {
+                console.error('Notification error in submitTaskResult:', notifyErr.message);
+            }
 
             return res.status(200).json({
                 success: true,

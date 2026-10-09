@@ -1,6 +1,8 @@
 import React from 'react';
 
-export default function PageHeader({ title, subtitle, children, breadcrumbs = [] }) {
+export default function PageHeader({ title, subtitle, children, action, breadcrumbs = [] }) {
+  const rightContent = action || children;
+
   return (
     <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
       <div>
@@ -21,9 +23,9 @@ export default function PageHeader({ title, subtitle, children, breadcrumbs = []
         <h1 className="h3 mb-1 text-dark fw-bold">{title}</h1>
         {subtitle && <p className="text-muted small mb-0">{subtitle}</p>}
       </div>
-      {children && (
+      {rightContent && (
         <div className="d-flex align-items-center gap-2 flex-wrap">
-          {children}
+          {rightContent}
         </div>
       )}
     </div>

@@ -34,5 +34,12 @@ router.patch('/interns/:id/status', HrController.updateInternStatus);
 // Mentor management within branch
 router.get('/mentors', HrController.getMentors);
 router.post('/mentors', HrController.createMentor);
+router.put('/mentors/:id', HrController.updateMentor);
+router.patch('/mentors/:id/status', HrController.toggleMentorStatus);
+router.patch('/mentors/:id/reset-password', HrController.resetMentorPassword);
+
+// Applicant management within branch
+router.get('/applicants', HrController.getApplicants);
+router.get('/applicants/:id', HrController.getApplicantDetails);
 
 module.exports = router;

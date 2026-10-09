@@ -117,6 +117,29 @@ const ApplicationController = {
 
             const newApp = await ApplicationModel.findById(applicationId);
 
+            // Notify HRs (branch/admin) and Applicant
+            try {
+                const NotificationService = require('../services/notificationService');
+                await NotificationService.notifyHRs({
+                    branchId: position.branch_id,
+                    senderId: req.user.id,
+                    title: 'Đơn ứng tuyển mới 📄',
+                    message: `Ứng viên "${applicant_name || req.user.full_name}" vừa nộp hồ sơ ứng tuyển vị trí "${position.title}".`,
+                    type: 'APPLICATION',
+                    link: '/hr/applications'
+                });
+
+                await NotificationService.notifyUser({
+                    userId: req.user.id,
+                    title: 'Nộp hồ sơ thành công ✅',
+                    message: `Bạn đã nộp thành công hồ sơ ứng tuyển vị trí "${position.title}". Phòng Nhân sự sẽ sớm xét duyệt hồ sơ của bạn.`,
+                    type: 'APPLICATION',
+                    link: '/dashboard'
+                });
+            } catch (notifyErr) {
+                console.error('Notification error in apply:', notifyErr.message);
+            }
+
             return res.status(201).json({
                 success: true,
                 message: 'Nộp đơn ứng tuyển thành công!',

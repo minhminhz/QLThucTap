@@ -5,16 +5,22 @@ const ApplicationModel = require('../models/applicationModel');
 const InternModel = require('../models/internModel');
 const UserModel = require('../models/userModel');
 
+function getEnforcedBranchId(req) {
+    if (req.user.role === 'ADMIN') {
+        if (req.query.branch_id && req.query.branch_id !== 'all') {
+            return parseInt(req.query.branch_id, 10);
+        }
+        return null;
+    }
+    // HR is strictly restricted to their own branch
+    return req.user.branch_id || null;
+}
+
 const HrController = {
     // GET /api/hr/dashboard
     async getDashboardStats(req, res, next) {
         try {
-            let branchId = null;
-            if (req.query.branch_id && req.query.branch_id !== 'all') {
-                branchId = parseInt(req.query.branch_id, 10);
-            } else if (!req.query.branch_id && req.user.role !== 'ADMIN' && req.user.branch_id) {
-                branchId = req.user.branch_id;
-            }
+            const branchId = getEnforcedBranchId(req);
 
             let positionQuery = `SELECT COUNT(*) as count FROM internship_positions WHERE status = 'OPEN'`;
             let pendingAppQuery = `SELECT COUNT(*) as count FROM applications a JOIN internship_positions p ON a.position_id = p.id WHERE a.status = 'PENDING'`;
@@ -56,12 +62,7 @@ const HrController = {
     // GET /api/hr/positions
     async getPositions(req, res, next) {
         try {
-            let branchId = null;
-            if (req.query.branch_id && req.query.branch_id !== 'all') {
-                branchId = parseInt(req.query.branch_id, 10);
-            } else if (!req.query.branch_id && req.user.role !== 'ADMIN' && req.user.branch_id) {
-                branchId = req.user.branch_id;
-            }
+            const branchId = getEnforcedBranchId(req);
 
             const positions = await PositionModel.findAll({
                 branch_id: branchId,
@@ -81,8 +82,17 @@ const HrController = {
     // POST /api/hr/positions
     async createPosition(req, res, next) {
         try {
-            const { title, description, requirements, benefits, quantity, internship_duration, deadline, status, branch_id, department_id } = req.body;
-            const branchId = branch_id ? parseInt(branch_id, 10) : (req.user.branch_id || 1);
+            const { title, description, requirements, benefits, quantity, internship_duration, deadline, status, department_id } = req.body;
+            const branchId = req.user.role === 'ADMIN' && req.body.branch_id 
+                ? parseInt(req.body.branch_id, 10) 
+                : req.user.branch_id;
+
+            if (!branchId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tài khoản HR chưa được gán cơ sở làm việc để tạo vị trí tuyển dụng.'
+                });
+            }
 
             if (!title || !deadline) {
                 return res.status(400).json({
@@ -202,13 +212,7 @@ const HrController = {
     // GET /api/hr/applications
     async getApplications(req, res, next) {
         try {
-            let branchId = null;
-            if (req.query.branch_id && req.query.branch_id !== 'all') {
-                branchId = parseInt(req.query.branch_id, 10);
-            } else if (!req.query.branch_id && req.user.role !== 'ADMIN' && req.user.branch_id) {
-                branchId = req.user.branch_id;
-            }
-
+            const branchId = getEnforcedBranchId(req);
             const applications = await ApplicationModel.findAllForHR(branchId, req.query);
 
             return res.status(200).json({
@@ -239,6 +243,13 @@ const HrController = {
                 return res.status(404).json({
                     success: false,
                     message: 'Không tìm thấy hồ sơ ứng tuyển này.'
+                });
+            }
+
+            if (req.user.role !== 'ADMIN' && application.branch_id !== req.user.branch_id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền xét duyệt hồ sơ ứng tuyển thuộc cơ sở của mình.'
                 });
             }
 
@@ -292,6 +303,42 @@ const HrController = {
 
             const updatedApp = await ApplicationModel.findById(application.id);
 
+            // Dispatch notifications to applicant
+            try {
+                const NotificationService = require('../services/notificationService');
+                const positionTitle = application.position_title || 'Thực tập sinh';
+                if (status === 'APPROVED') {
+                    await NotificationService.notifyUser({
+                        userId: application.applicant_id,
+                        senderId: req.user.id,
+                        title: '🎉 Chúc mừng bạn đã trúng tuyển thực tập!',
+                        message: `Chúc mừng bạn! Hồ sơ ứng tuyển vị trí "${positionTitle}" đã được DUYỆT.${finalNote ? ' Lời nhắn HR: ' + finalNote : ''} Bạn đã chính thức trở thành Thực tập sinh của VYMI Tech.`,
+                        type: 'APPLICATION',
+                        link: '/intern'
+                    });
+                } else if (status === 'REJECTED') {
+                    await NotificationService.notifyUser({
+                        userId: application.applicant_id,
+                        senderId: req.user.id,
+                        title: 'Kết quả xét duyệt hồ sơ ứng tuyển 📄',
+                        message: `Hồ sơ ứng tuyển vị trí "${positionTitle}" của bạn chưa phù hợp trong đợt tuyển dụng này.${finalNote ? ' Phản hồi HR: ' + finalNote : ''}`,
+                        type: 'APPLICATION',
+                        link: '/dashboard'
+                    });
+                } else if (status === 'REVIEWING') {
+                    await NotificationService.notifyUser({
+                        userId: application.applicant_id,
+                        senderId: req.user.id,
+                        title: 'Hồ sơ đang được xem xét ⏳',
+                        message: `Hồ sơ ứng tuyển vị trí "${positionTitle}" của bạn đang được phòng Nhân sự kiểm tra và đánh giá.${finalNote ? ' Ghi chú: ' + finalNote : ''}`,
+                        type: 'APPLICATION',
+                        link: '/dashboard'
+                    });
+                }
+            } catch (notifyErr) {
+                console.error('Notification error in updateApplicationStatus:', notifyErr.message);
+            }
+
             return res.status(200).json({
                 success: true,
                 message: `Cập nhật trạng thái hồ sơ sang ${status} thành công!`,
@@ -305,7 +352,7 @@ const HrController = {
     // GET /api/hr/interns
     async getInterns(req, res, next) {
         try {
-            const branchId = req.user.role === 'ADMIN' ? req.query.branch_id : req.user.branch_id;
+            const branchId = getEnforcedBranchId(req);
             const interns = await InternModel.findAllForHR(branchId, req.query);
 
             return res.status(200).json({
@@ -337,17 +384,25 @@ const HrController = {
                 });
             }
 
+            let assignedMentor = null;
             if (mentor_id) {
-                const mentor = await UserModel.findById(mentor_id);
-                if (!mentor || mentor.role !== 'MENTOR') {
+                assignedMentor = await UserModel.findById(mentor_id);
+                if (!assignedMentor || assignedMentor.role !== 'MENTOR') {
                     return res.status(400).json({
                         success: false,
                         message: 'Tài khoản người hướng dẫn (Mentor) không hợp lệ.'
                     });
                 }
 
+                if (assignedMentor.status !== 'ACTIVE') {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Mentor này đang ở trạng thái ngừng hoạt động (INACTIVE). Vui lòng chọn Mentor đang hoạt động (ACTIVE).'
+                    });
+                }
+
                 // Verify mentor belongs to the SAME branch
-                if (mentor.branch_id !== intern.branch_id) {
+                if (assignedMentor.branch_id !== intern.branch_id) {
                     return res.status(400).json({
                         success: false,
                         message: 'Mentor được phân công phải thuộc cùng cơ sở với Thực tập sinh!'
@@ -357,6 +412,45 @@ const HrController = {
 
             await InternModel.assignMentor(intern.id, mentor_id || null);
             const updatedIntern = await InternModel.findById(intern.id);
+
+            // Dispatch notifications to Mentor and Intern
+            try {
+                const NotificationService = require('../services/notificationService');
+                if (mentor_id && assignedMentor) {
+                    // Notify Mentor
+                    await NotificationService.notifyUser({
+                        userId: mentor_id,
+                        senderId: req.user.id,
+                        title: 'Phân công hướng dẫn Thực tập sinh 👨‍🏫',
+                        message: `Phòng HR đã phân công bạn hướng dẫn Thực tập sinh "${intern.full_name}" (Vị trí: ${intern.position_title || 'Thực tập sinh'}).`,
+                        type: 'INTERNSHIP',
+                        link: '/mentor/interns'
+                    });
+
+                    // Notify Intern
+                    if (intern.user_id) {
+                        await NotificationService.notifyUser({
+                            userId: intern.user_id,
+                            senderId: req.user.id,
+                            title: 'Phân công Người hướng dẫn (Mentor) 🤝',
+                            message: `Bạn đã được phân công Mentor "${assignedMentor.full_name}" (${assignedMentor.email}) trực tiếp hướng dẫn trong kỳ thực tập.`,
+                            type: 'INTERNSHIP',
+                            link: '/intern'
+                        });
+                    }
+                } else if (!mentor_id && intern.user_id) {
+                    await NotificationService.notifyUser({
+                        userId: intern.user_id,
+                        senderId: req.user.id,
+                        title: 'Cập nhật Người hướng dẫn',
+                        message: 'HR đã thay đổi phân công Mentor cho kỳ thực tập của bạn.',
+                        type: 'INTERNSHIP',
+                        link: '/intern'
+                    });
+                }
+            } catch (notifyErr) {
+                console.error('Notification error in assignMentor:', notifyErr.message);
+            }
 
             return res.status(200).json({
                 success: true,
@@ -399,6 +493,44 @@ const HrController = {
             await InternModel.updateStatus(intern.id, status);
             const updated = await InternModel.findById(intern.id);
 
+            // Dispatch notifications to Intern and Mentor
+            try {
+                const NotificationService = require('../services/notificationService');
+                const statusMap = {
+                    UPCOMING: 'Sắp bắt đầu',
+                    IN_PROGRESS: 'Đang thực tập',
+                    COMPLETED: 'Đã hoàn thành',
+                    CANCELLED: 'Đã hủy / Tạm ngừng'
+                };
+                const statusLabel = statusMap[status] || status;
+
+                // Notify Intern
+                if (intern.user_id) {
+                    await NotificationService.notifyUser({
+                        userId: intern.user_id,
+                        senderId: req.user.id,
+                        title: 'Cập nhật tiến độ kỳ thực tập 📊',
+                        message: `Trạng thái kỳ thực tập của bạn đã được chuyển sang: "${statusLabel}".`,
+                        type: 'INTERNSHIP',
+                        link: '/intern'
+                    });
+                }
+
+                // Notify Mentor if assigned
+                if (intern.mentor_id) {
+                    await NotificationService.notifyUser({
+                        userId: intern.mentor_id,
+                        senderId: req.user.id,
+                        title: 'Cập nhật trạng thái Thực tập sinh 📋',
+                        message: `Kỳ thực tập của TTS "${intern.full_name}" đã chuyển sang trạng thái: "${statusLabel}".`,
+                        type: 'INTERNSHIP',
+                        link: '/mentor/interns'
+                    });
+                }
+            } catch (notifyErr) {
+                console.error('Notification error in updateInternStatus:', notifyErr.message);
+            }
+
             return res.status(200).json({
                 success: true,
                 message: `Cập nhật trạng thái kỳ thực tập thành ${status} thành công!`,
@@ -412,11 +544,14 @@ const HrController = {
     // GET /api/hr/mentors
     async getMentors(req, res, next) {
         try {
-            const branchId = req.user.role === 'ADMIN' ? req.query.branch_id : req.user.branch_id;
-            const mentors = await UserModel.findMentorsByBranch(branchId);
+            const branchId = getEnforcedBranchId(req);
+            const status = req.query.status || null; // 'ACTIVE', 'INACTIVE', or null for ALL
+            const search = req.query.search || null;
+            const mentors = await UserModel.findMentorsByBranch(branchId, status, search);
 
             return res.status(200).json({
                 success: true,
+                count: mentors.length,
                 data: mentors
             });
         } catch (err) {
@@ -428,12 +563,29 @@ const HrController = {
     async createMentor(req, res, next) {
         try {
             const { full_name, email, password, phone, department_id } = req.body;
-            const branchId = req.user.role === 'ADMIN' && req.body.branch_id ? req.body.branch_id : req.user.branch_id;
+            // HR always gets their own branch; ADMIN can pass branch_id explicitly
+            const branchId = req.user.role === 'ADMIN' && req.body.branch_id
+                ? parseInt(req.body.branch_id, 10)
+                : req.user.branch_id;
+
+            if (!branchId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tài khoản HR chưa được gán cơ sở. Không thể tạo Mentor.'
+                });
+            }
 
             if (!full_name || !email || !password) {
                 return res.status(400).json({
                     success: false,
                     message: 'Vui lòng cung cấp đầy đủ Họ tên, Email và Mật khẩu khởi tạo cho Mentor.'
+                });
+            }
+
+            if (password.length < 8) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu phải có ít nhất 8 ký tự.'
                 });
             }
 
@@ -455,7 +607,7 @@ const HrController = {
                 phone: phone ? phone.trim() : null,
                 role: 'MENTOR',
                 branch_id: branchId,
-                department_id: department_id || 1
+                department_id: department_id ? parseInt(department_id, 10) : null
             });
 
             const newMentor = await UserModel.findById(mentorId);
@@ -470,10 +622,234 @@ const HrController = {
         }
     },
 
+    // PUT /api/hr/mentors/:id
+    async updateMentor(req, res, next) {
+        try {
+            const mentorId = parseInt(req.params.id, 10);
+            const mentor = await UserModel.findById(mentorId);
+
+            if (!mentor || mentor.role !== 'MENTOR') {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy Mentor.'
+                });
+            }
+
+            // HR can only manage mentors in their own branch
+            if (req.user.role !== 'ADMIN' && mentor.branch_id !== req.user.branch_id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền cập nhật thông tin Mentor thuộc cơ sở của mình.'
+                });
+            }
+
+            const { full_name, phone, department_id } = req.body;
+            await UserModel.updateMentorProfile(mentorId, { full_name, phone, department_id });
+            const updated = await UserModel.findById(mentorId);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Cập nhật thông tin Mentor thành công!',
+                data: updated
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    // PATCH /api/hr/mentors/:id/status
+    async toggleMentorStatus(req, res, next) {
+        try {
+            const mentorId = parseInt(req.params.id, 10);
+            const { status } = req.body;
+
+            if (!['ACTIVE', 'INACTIVE'].includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Trạng thái không hợp lệ. Chỉ được dùng ACTIVE hoặc INACTIVE.'
+                });
+            }
+
+            const mentor = await UserModel.findById(mentorId);
+
+            if (!mentor || mentor.role !== 'MENTOR') {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy Mentor.'
+                });
+            }
+
+            // HR can only manage mentors in their own branch
+            if (req.user.role !== 'ADMIN' && mentor.branch_id !== req.user.branch_id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền thay đổi trạng thái Mentor thuộc cơ sở của mình.'
+                });
+            }
+
+            // If deactivating, check active interns assignment and warn
+            let affectedInterns = [];
+            if (status === 'INACTIVE') {
+                affectedInterns = await UserModel.getActiveInternsForMentor(mentorId);
+            }
+
+            await UserModel.updateStatus(mentorId, status);
+
+            // Notify mentor of status change
+            try {
+                const NotificationService = require('../services/notificationService');
+                if (status === 'INACTIVE') {
+                    await NotificationService.notifyUser({
+                        userId: mentorId,
+                        senderId: req.user.id,
+                        title: 'Tài khoản Mentor tạm ngưng hoạt động 🔒',
+                        message: `Tài khoản Mentor của bạn đã được phòng HR chuyển sang trạng thái ngưng hoạt động. Vui lòng liên hệ HR để biết thêm thông tin.`,
+                        type: 'ACCOUNT',
+                        link: '/mentor'
+                    });
+                } else {
+                    await NotificationService.notifyUser({
+                        userId: mentorId,
+                        senderId: req.user.id,
+                        title: 'Tài khoản Mentor đã được kích hoạt 🟢',
+                        message: `Tài khoản Mentor của bạn đã được phòng HR kích hoạt trở lại. Bạn có thể tiếp tục hướng dẫn thực tập sinh.`,
+                        type: 'ACCOUNT',
+                        link: '/mentor'
+                    });
+                }
+            } catch (notifyErr) {
+                console.error('Notification error in toggleMentorStatus:', notifyErr.message);
+            }
+
+            const responseData = {
+                success: true,
+                message: `Đã chuyển trạng thái Mentor sang ${status === 'ACTIVE' ? 'Đang hoạt động' : 'Ngưng hoạt động'}.`,
+                data: { ...mentor, status }
+            };
+
+            // Attach intern warning if deactivating with active interns
+            if (status === 'INACTIVE' && affectedInterns.length > 0) {
+                responseData.warning = `Mentor này đang hướng dẫn ${affectedInterns.length} thực tập sinh đang/sắp thực tập. Vui lòng phân công Mentor mới cho các bạn này.`;
+                responseData.affected_interns = affectedInterns;
+            }
+
+            return res.status(200).json(responseData);
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    // PATCH /api/hr/mentors/:id/reset-password
+    async resetMentorPassword(req, res, next) {
+        try {
+            const mentorId = parseInt(req.params.id, 10);
+            const { new_password } = req.body;
+
+            if (!new_password || new_password.length < 8) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu mới phải có ít nhất 8 ký tự.'
+                });
+            }
+
+            const mentor = await UserModel.findById(mentorId);
+
+            if (!mentor || mentor.role !== 'MENTOR') {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy Mentor.'
+                });
+            }
+
+            // HR can only reset passwords for mentors in their own branch
+            if (req.user.role !== 'ADMIN' && mentor.branch_id !== req.user.branch_id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền đặt lại mật khẩu cho Mentor thuộc cơ sở của mình.'
+                });
+            }
+
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(new_password, salt);
+            await UserModel.updatePassword(mentorId, hashedPassword);
+
+            // Notify mentor of password reset
+            try {
+                const NotificationService = require('../services/notificationService');
+                await NotificationService.notifyUser({
+                    userId: mentorId,
+                    senderId: req.user.id,
+                    title: 'Mật khẩu của bạn đã được đặt lại 🔑',
+                    message: `Phòng HR đã đặt lại mật khẩu tài khoản Mentor của bạn. Vui lòng đăng nhập lại và thay đổi mật khẩu trong phần Hồ sơ cá nhân.`,
+                    type: 'ACCOUNT',
+                    link: '/profile'
+                });
+            } catch (notifyErr) {
+                console.error('Notification error in resetMentorPassword:', notifyErr.message);
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: `Đặt lại mật khẩu cho Mentor "${mentor.full_name}" thành công. Thông báo đã được gửi tới Mentor.`
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    // GET /api/hr/applicants
+    async getApplicants(req, res, next) {
+        try {
+            const branchId = getEnforcedBranchId(req);
+            const filters = { search: req.query.search || null };
+            const applicants = await UserModel.findApplicantsByBranch(branchId, filters);
+
+            return res.status(200).json({
+                success: true,
+                count: applicants.length,
+                data: applicants
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    // GET /api/hr/applicants/:id
+    async getApplicantDetails(req, res, next) {
+        try {
+            const branchId = getEnforcedBranchId(req);
+            const applicantId = parseInt(req.params.id, 10);
+
+            const details = await UserModel.findApplicantDetailsInBranch(applicantId, branchId);
+
+            if (!details) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy ứng viên này.'
+                });
+            }
+
+            // HR can only view applicants who have applied to their branch positions
+            if (req.user.role !== 'ADMIN' && details.applications.length === 0) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Ứng viên này chưa nộp hồ sơ vào cơ sở của bạn.'
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                data: details
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
     // GET /api/hr/departments
     async getDepartments(req, res, next) {
         try {
-            const branchId = req.user.role === 'ADMIN' ? req.query.branch_id : req.user.branch_id;
+            const branchId = getEnforcedBranchId(req);
             let query = `SELECT id, name, branch_id FROM departments WHERE 1=1`;
             const params = [];
             if (branchId) { query += ` AND branch_id = ?`; params.push(branchId); }
@@ -515,6 +891,9 @@ const HrController = {
                 if (!mentor || mentor.role !== 'MENTOR') {
                     return res.status(400).json({ success: false, message: 'Mentor không hợp lệ.' });
                 }
+                if (mentor.status !== 'ACTIVE') {
+                    return res.status(400).json({ success: false, message: 'Mentor này đang ngưng hoạt động (INACTIVE). Vui lòng chọn Mentor đang hoạt động.' });
+                }
                 if (mentor.branch_id !== intern.branch_id) {
                     return res.status(400).json({ success: false, message: 'Mentor phải thuộc cùng cơ sở với Thực tập sinh.' });
                 }
@@ -524,10 +903,42 @@ const HrController = {
                 [mentor_id || null, start_date || null, end_date || null, intern.id]
             );
             const updated = await InternModel.findById(intern.id);
+
+            // Dispatch notifications to Mentor and Intern
+            try {
+                const NotificationService = require('../services/notificationService');
+                if (mentor_id) {
+                    const mentor = await UserModel.findById(mentor_id);
+                    if (mentor) {
+                        await NotificationService.notifyUser({
+                            userId: mentor_id,
+                            senderId: req.user.id,
+                            title: 'Phân công hướng dẫn Thực tập sinh 👨‍🏫',
+                            message: `Phòng HR đã phân công bạn hướng dẫn Thực tập sinh "${intern.intern_name || intern.full_name}" (Vị trí: ${intern.position_title || 'Thực tập sinh'}).`,
+                            type: 'INTERNSHIP',
+                            link: '/mentor/interns'
+                        });
+                        if (intern.user_id) {
+                            await NotificationService.notifyUser({
+                                userId: intern.user_id,
+                                senderId: req.user.id,
+                                title: 'Phân công Người hướng dẫn (Mentor) 🤝',
+                                message: `Bạn đã được phân công Mentor "${mentor.full_name}" (${mentor.email}) trực tiếp hướng dẫn trong kỳ thực tập.`,
+                                type: 'INTERNSHIP',
+                                link: '/intern'
+                            });
+                        }
+                    }
+                }
+            } catch (notifyErr) {
+                console.error('Notification error in assignMentorWithDates:', notifyErr.message);
+            }
+
             return res.status(200).json({ success: true, message: 'Phân công Mentor thành công!', data: updated });
         } catch (err) { next(err); }
     }
 };
 
 module.exports = HrController;
+
 

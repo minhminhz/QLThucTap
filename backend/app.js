@@ -20,6 +20,7 @@ const mentorRoutes = require('./routes/mentorRoutes');
 const internRoutes = require('./routes/internRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
@@ -58,6 +59,7 @@ app.use('/api/mentor', mentorRoutes);
 app.use('/api/intern', internRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 6. Error Handlers
 app.use(notFound);

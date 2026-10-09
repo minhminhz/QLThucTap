@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -81,6 +82,8 @@ export default function Navbar() {
           <div className="d-flex align-items-center gap-2">
             {user ? (
               <div className="d-flex align-items-center gap-2">
+                <NotificationBell variant="navbar" />
+
                 <Link
                   to={getDashboardLink()}
                   className="btn btn-sm btn-outline-light d-flex align-items-center gap-2 px-3 py-1.5"
