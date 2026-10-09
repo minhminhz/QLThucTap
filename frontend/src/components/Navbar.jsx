@@ -36,7 +36,7 @@ export default function Navbar() {
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark sticky-top shadow-sm py-2" style={{ backgroundColor: '#0284c7' }}>
-      <div className="container">
+      <div className="container-fluid px-3 px-md-4 px-xl-5">
         {/* Brand Logo */}
         <Link to="/" className="navbar-brand d-flex align-items-center gap-2">
           <div

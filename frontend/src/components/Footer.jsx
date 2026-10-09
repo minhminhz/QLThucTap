@@ -30,7 +30,7 @@ export default function Footer() {
           {/* Locations */}
           <div className="col-12 col-md-4">
             <h6 className="text-uppercase fw-bold text-light small mb-3 tracking-wider">
-              <i className="bi bi-geo-alt-fill text-primary me-1"></i> Hệ thống cơ sở
+              <i className="bi bi-geo-alt-fill text-primary me-1"></i> Hệ thống cơ sở chính
             </h6>
             <ul className="list-unstyled text-secondary small mb-0 d-flex flex-column gap-2">
               <li>

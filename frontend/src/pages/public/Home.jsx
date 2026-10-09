@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,6 +13,40 @@ export default function Home() {
   const [selectedBranch, setSelectedBranch] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Cuộn ngang tự động cho hệ thống cơ sở
+  const branchScrollRef = useRef(null);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (!branches || branches.length <= 1 || isPaused) return;
+
+    const timer = setInterval(() => {
+      const el = branchScrollRef.current;
+      if (!el) return;
+
+      const cardWidth = 336; // 320px width + 16px gap
+      const maxScroll = el.scrollWidth - el.clientWidth;
+
+      if (el.scrollLeft >= maxScroll - 15) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: cardWidth, behavior: 'smooth' });
+      }
+    }, 3200);
+
+    return () => clearInterval(timer);
+  }, [branches, isPaused]);
+
+  const scrollBranches = (direction) => {
+    const el = branchScrollRef.current;
+    if (!el) return;
+    const cardWidth = 336;
+    el.scrollBy({
+      left: direction === 'left' ? -cardWidth : cardWidth,
+      behavior: 'smooth'
+    });
+  };
 
   const handleSearchSubmit = (e) => {
     if (e) e.preventDefault();
@@ -67,7 +101,7 @@ export default function Home() {
       {/* ===== 1. HERO BANNER ===== */}
       <section className="bg-primary-subtle border border-primary-subtle rounded-4 p-4 p-sm-5 text-center mb-5 shadow-xs">
         <div className="d-inline-flex align-items-center gap-2 bg-white text-primary border border-primary-subtle px-3 py-1.5 rounded-pill small fw-bold mb-3 shadow-xs">
-          <i className="bi bi-patch-check-fill"></i>
+          {/* <i className="bi bi-patch-check-fill"></i> */}
           CỔNG TUYỂN DỤNG & QUẢN LÝ THỰC TẬP VYMI TECH
         </div>
 
@@ -75,7 +109,7 @@ export default function Home() {
           Khởi đầu sự nghiệp công nghệ <span className="text-primary">vững chắc</span>
         </h1>
         <p className="text-muted mx-auto mb-4" style={{ maxWidth: '600px' }}>
-          Môi trường đào tạo thực chiến, lộ trình kèm cặp 1-1 từ các kỹ sư giàu kinh nghiệm tại các cơ sở trên toàn quốc.
+          Đào tạo thực chiến, tham gia dự án thật cùng các kỹ sư giàu kinh nghiệm tại các cơ sở trên toàn quốc.
         </p>
 
         {/* Thanh tìm kiếm */}
@@ -157,73 +191,127 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===== 2. HỆ THỐNG CƠ SỞ ===== */}
+      {/* ===== 2. HỆ THỐNG CƠ SỞ (TỰ ĐỘNG CUỘN NGANG & ĐỒNG BỘ DỮ LIỆU) ===== */}
       <section className="mb-5">
-        <div className="d-flex align-items-center justify-content-between mb-4">
+        <div className="d-flex align-items-center justify-content-between mb-3">
           <div>
             <h2 className="h4 fw-bold text-dark mb-1">
-              <i className="bi bi-buildings text-primary me-2"></i> Hệ thống cơ sở thực tập
+              <i className="bi bi-buildings text-primary me-2"></i> Hệ thống cơ sở
             </h2>
-            <p className="text-muted small mb-0">
-              Các văn phòng và trung tâm phát triển công nghệ hiện đại
-            </p>
           </div>
-          <span className="badge bg-primary-subtle text-primary border border-primary-subtle d-none d-sm-inline-block">
-            {branches.length > 0 ? `${branches.length} Cơ sở` : '3 Cơ sở'}
-          </span>
+
+          <div className="d-flex align-items-center gap-2">
+            <span className="badge bg-primary-subtle text-primary border border-primary-subtle d-none d-sm-inline-block">
+              {branches.length > 0 ? `${branches.length} Cơ sở` : 'Đang cập nhật'}
+            </span>
+            <div className="d-flex align-items-center gap-1">
+              <button
+                type="button"
+                onClick={() => scrollBranches('left')}
+                className="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0"
+                style={{ width: '32px', height: '32px' }}
+                title="Cuộn sang trái"
+              >
+                <i className="bi bi-chevron-left"></i>
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollBranches('right')}
+                className="btn btn-sm btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0"
+                style={{ width: '32px', height: '32px' }}
+                title="Cuộn sang phải"
+              >
+                <i className="bi bi-chevron-right"></i>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="row g-3">
-          <div className="col-12 col-md-4">
-            <div className="card h-100 border shadow-xs">
-              <div className="card-body p-4">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <h6 className="fw-bold text-dark mb-0">Hà Nội (Trụ sở chính)</h6>
-                  <span className="badge bg-success-subtle text-success border border-success-subtle">
-                    Hoạt động
-                  </span>
-                </div>
-                <p className="text-muted small mb-3">Số 1 Đại Cồ Việt, Q. Hai Bà Trưng, Hà Nội</p>
-                <Link to="/positions?branch_id=1" className="small fw-semibold text-primary text-decoration-none d-inline-flex align-items-center gap-1 hover-underline">
-                  <i className="bi bi-briefcase me-1"></i> Vị trí mở tuyển tại Hà Nội →
-                </Link>
-              </div>
+        <div
+          ref={branchScrollRef}
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          onTouchStart={() => setIsPaused(true)}
+          onTouchEnd={() => setIsPaused(false)}
+          className="d-flex gap-3 overflow-x-auto pb-3 pt-1 hide-scrollbar"
+          style={{
+            scrollBehavior: 'smooth',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
+          {branches.length === 0 ? (
+            <div className="text-muted small py-4 text-center w-100 bg-white rounded-3 border">
+              <i className="bi bi-buildings fs-3 d-block mb-2 text-secondary"></i>
+              Đang tải danh sách cơ sở...
             </div>
-          </div>
+          ) : (
+            branches.map((b) => (
+              <div
+                key={b.id}
+                className="card border shadow-xs flex-shrink-0 branch-carousel-card"
+                style={{
+                  width: '330px',
+                  borderRadius: '14px',
+                  backgroundColor: '#ffffff'
+                }}
+              >
+                <div className="card-body p-4 d-flex flex-column justify-content-between">
+                  <div>
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <div className="d-flex align-items-center gap-2 overflow-hidden me-2">
+                        <div
+                          className="bg-primary-subtle text-primary rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                          style={{ width: '38px', height: '38px' }}
+                        >
+                          <i className="bi bi-building fs-5"></i>
+                        </div>
+                        <h6 className="fw-bold text-dark mb-0 text-truncate" title={b.name}>
+                          {b.name}
+                        </h6>
+                      </div>
+                      <span className="badge bg-success-subtle text-success border border-success-subtle flex-shrink-0">
+                        {b.status === 'ACTIVE' || !b.status ? 'Hoạt động' : b.status}
+                      </span>
+                    </div>
 
-          <div className="col-12 col-md-4">
-            <div className="card h-100 border shadow-xs">
-              <div className="card-body p-4">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <h6 className="fw-bold text-dark mb-0">Đà Nẵng (Miền Trung)</h6>
-                  <span className="badge bg-success-subtle text-success border border-success-subtle">
-                    Hoạt động
-                  </span>
-                </div>
-                <p className="text-muted small mb-3">Tòa nhà FPT Complex, KCN An Đồn, Đà Nẵng</p>
-                <Link to="/positions?branch_id=2" className="small fw-semibold text-primary text-decoration-none d-inline-flex align-items-center gap-1 hover-underline">
-                  <i className="bi bi-briefcase me-1"></i> Vị trí mở tuyển tại Đà Nẵng →
-                </Link>
-              </div>
-            </div>
-          </div>
+                    <p
+                      className="text-muted small mb-3"
+                      style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        minHeight: '38px',
+                        lineHeight: '1.4'
+                      }}
+                      title={b.address}
+                    >
+                      <i className="bi bi-geo-alt text-primary me-1"></i>
+                      {b.address || 'Đang cập nhật địa chỉ'}
+                    </p>
+                  </div>
 
-          <div className="col-12 col-md-4">
-            <div className="card h-100 border shadow-xs">
-              <div className="card-body p-4">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <h6 className="fw-bold text-dark mb-0">TP. Hồ Chí Minh (Miền Nam)</h6>
-                  <span className="badge bg-success-subtle text-success border border-success-subtle">
-                    Hoạt động
-                  </span>
+                  <div className="pt-3 border-top d-flex align-items-center justify-content-between">
+                    <span className="text-secondary small">
+                      <i className="bi bi-briefcase text-primary me-1"></i>
+                      {b.open_positions_count ? (
+                        <strong className="text-dark">{b.open_positions_count} vị trí</strong>
+                      ) : (
+                        'Đang tuyển sinh'
+                      )}
+                    </span>
+                    <Link
+                      to={`/positions?branch_id=${b.id}`}
+                      className="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill fw-semibold hover-text-white"
+                      style={{ fontSize: '0.82rem' }}
+                    >
+                      Chi tiết →
+                    </Link>
+                  </div>
                 </div>
-                <p className="text-muted small mb-3">Landmark 81, Vinhomes Central Park, Bình Thạnh</p>
-                <Link to="/positions?branch_id=3" className="small fw-semibold text-primary text-decoration-none d-inline-flex align-items-center gap-1 hover-underline">
-                  <i className="bi bi-briefcase me-1"></i> Vị trí mở tuyển tại TP.HCM →
-                </Link>
               </div>
-            </div>
-          </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -232,20 +320,16 @@ export default function Home() {
         <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
           <div>
             <h2 className="h4 fw-bold text-dark mb-1">
-              <i className="bi bi-briefcase text-primary me-2"></i> Vị trí thực tập đang mở tuyển
+              <i className="bi bi-briefcase text-primary me-2"></i> Vị trí tuyển dụng
             </h2>
-            <p className="text-muted small mb-0">
-              Chọn vị trí mong muốn để xem chi tiết yêu cầu, chế độ đãi ngộ và nộp hồ sơ CV
-            </p>
           </div>
 
           {/* Action to dedicated positions page & Branch buttons */}
           <div className="d-flex flex-wrap align-items-center gap-2">
             <button
               onClick={() => setSelectedBranch('')}
-              className={`btn btn-sm ${
-                selectedBranch === '' ? 'btn-primary' : 'btn-outline-secondary'
-              }`}
+              className={`btn btn-sm ${selectedBranch === '' ? 'btn-primary' : 'btn-outline-secondary'
+                }`}
             >
               Tất cả ({positions.length})
             </button>
@@ -253,17 +337,14 @@ export default function Home() {
               <button
                 key={b.id}
                 onClick={() => setSelectedBranch(b.id)}
-                className={`btn btn-sm ${
-                  selectedBranch === b.id ? 'btn-primary' : 'btn-outline-secondary'
-                }`}
+                className={`btn btn-sm ${selectedBranch === b.id ? 'btn-primary' : 'btn-outline-secondary'
+                  }`}
               >
                 {b.name}
               </button>
             ))}
             <Link to="/positions" className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1.5 shadow-xs fw-semibold ms-md-2">
               <i className="bi bi-sliders text-primary"></i>
-              <span>Trang tuyển dụng riêng</span>
-              <i className="bi bi-arrow-right"></i>
             </Link>
           </div>
         </div>

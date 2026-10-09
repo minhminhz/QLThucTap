@@ -966,35 +966,25 @@ export default function Positions() {
                         >
                           <div className="card-body p-3.5 p-md-4">
                             <div className="d-flex flex-column flex-md-row align-items-md-start justify-content-between gap-3 mb-2">
-                              {/* Header & Icon */}
-                              <div className="d-flex align-items-start gap-3">
-                                <div
-                                  className="d-flex align-items-center justify-content-center bg-primary-subtle text-primary border border-primary-subtle rounded-3 flex-shrink-0"
-                                  style={{ width: '48px', height: '48px', fontSize: '1.4rem' }}
-                                >
-                                  <i className={`bi ${getDeptIconClass(pos.department_name)}`} />
+                              {/* Header & Title */}
+                              <div>
+                                <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                    {pos.branch_name}
+                                  </span>
+                                  <span className="text-muted small">
+                                    {pos.department_name}
+                                  </span>
+                                  {myApp && (
+                                    <span className="badge bg-success-subtle text-success border border-success-subtle">
+                                      Đã ứng tuyển
+                                    </span>
+                                  )}
                                 </div>
-                                <div>
-                                  <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                      <i className="bi bi-geo-alt-fill me-1" />
-                                      {pos.branch_name}
-                                    </span>
-                                    <span className="text-muted small">
-                                      {pos.department_name}
-                                    </span>
-                                    {myApp && (
-                                      <span className="badge bg-success-subtle text-success border border-success-subtle">
-                                        <i className="bi bi-check2-circle me-1" />
-                                        Đã ứng tuyển
-                                      </span>
-                                    )}
-                                  </div>
 
-                                  <h5 className="fw-bold text-dark mb-1 hover-text-primary transition-colors">
-                                    {pos.title}
-                                  </h5>
-                                </div>
+                                <h5 className="fw-bold text-dark mb-1 hover-text-primary transition-colors">
+                                  {pos.title}
+                                </h5>
                               </div>
 
                               {/* Right status badge */}
@@ -1021,15 +1011,12 @@ export default function Positions() {
                             <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2.5 border-top">
                               <div className="d-flex flex-wrap gap-2">
                                 <span className={`badge bg-${allowance.type}-subtle text-${allowance.type} border border-${allowance.type}-subtle`}>
-                                  <i className="bi bi-cash-stack me-1" />
                                   {allowance.text}
                                 </span>
                                 <span className="badge bg-light text-dark border">
-                                  <i className="bi bi-clock me-1 text-primary" />
                                   {pos.internship_duration || '3 tháng'}
                                 </span>
                                 <span className="badge bg-light text-dark border">
-                                  <i className="bi bi-people me-1 text-secondary" />
                                   Tuyển {pos.quantity} chỉ tiêu
                                 </span>
                               </div>
@@ -1038,11 +1025,10 @@ export default function Positions() {
                                 <span className="small text-muted">
                                   {isExpired ? (
                                     <span className="text-danger fw-medium">
-                                      <i className="bi bi-exclamation-circle me-1" />Đã hết hạn
+                                      Đã hết hạn
                                     </span>
                                   ) : (
                                     <span>
-                                      <i className="bi bi-calendar-event me-1" />
                                       Hạn: {formatDate(pos.deadline)}
                                     </span>
                                   )}
@@ -1050,10 +1036,9 @@ export default function Positions() {
 
                                 <button
                                   type="button"
-                                  className="btn btn-sm btn-outline-primary fw-semibold px-3 d-flex align-items-center gap-1 shadow-xs"
+                                  className="btn btn-sm btn-outline-primary fw-semibold px-3 shadow-xs"
                                 >
                                   <span>Xem chi tiết</span>
-                                  <i className="bi bi-arrow-right" />
                                 </button>
                               </div>
                             </div>
@@ -1113,7 +1098,6 @@ export default function Positions() {
                                 <div className="d-flex align-items-start justify-content-between gap-2 mb-1.5">
                                   <div className="d-flex align-items-center gap-1.5 flex-wrap">
                                     <span className="badge bg-white text-primary border border-primary-subtle" style={{ fontSize: '0.7rem' }}>
-                                      <i className="bi bi-geo-alt-fill me-0.5" />
                                       {pos.branch_name}
                                     </span>
                                     <span className="text-muted text-truncate" style={{ fontSize: '0.75rem', maxWidth: '140px' }}>
@@ -1138,11 +1122,9 @@ export default function Positions() {
                                 {/* Phụ cấp & Hạn nộp gọn gàng */}
                                 <div className="d-flex align-items-center justify-content-between pt-1 text-muted" style={{ fontSize: '0.75rem' }}>
                                   <span className="text-success fw-medium">
-                                    <i className="bi bi-cash-stack me-1" />
                                     {allowance.text}
                                   </span>
                                   <span>
-                                    <i className="bi bi-calendar3 me-1" />
                                     Hạn: {formatDate(pos.deadline)}
                                   </span>
                                 </div>

@@ -23,22 +23,13 @@ export default function PositionCard({ position }) {
     <div className="card h-100 border shadow-sm">
       <div className="card-body d-flex flex-column justify-content-between p-4">
         <div>
-          {/* Header Row: Icon, Branch badge & Save button */}
+          {/* Header Row: Branch badge & Save button */}
           <div className="d-flex align-items-start justify-content-between mb-3">
-            <div className="d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center bg-primary-subtle text-primary border border-primary-subtle rounded-3"
-                style={{ width: '44px', height: '44px', fontSize: '1.25rem' }}
-              >
-                <i className={`bi ${getDeptIconClass(position.department_name)}`}></i>
-              </div>
-              <div>
-                <span className="badge bg-primary-subtle text-primary border border-primary-subtle mb-1">
-                  <i className="bi bi-geo-alt me-1"></i>
-                  {position.branch_name}
-                </span>
-                <p className="text-muted small mb-0">{position.department_name}</p>
-              </div>
+            <div>
+              <span className="badge bg-primary-subtle text-primary border border-primary-subtle mb-1">
+                {position.branch_name}
+              </span>
+              <p className="text-muted small mb-0">{position.department_name}</p>
             </div>
 
             <button
@@ -79,15 +70,12 @@ export default function PositionCard({ position }) {
           {/* Tag Pills */}
           <div className="d-flex flex-wrap gap-2 pt-2 border-top">
             <span className="badge bg-light text-dark border">
-              <i className="bi bi-cash-stack text-success me-1"></i>
               {getAllowanceText()}
             </span>
             <span className="badge bg-light text-dark border">
-              <i className="bi bi-clock me-1 text-primary"></i>
               {position.internship_duration}
             </span>
             <span className="badge bg-light text-dark border">
-              <i className="bi bi-people me-1 text-secondary"></i>
               Tuyển {position.quantity}
             </span>
           </div>
@@ -98,11 +86,10 @@ export default function PositionCard({ position }) {
           <span className="text-muted">
             {isExpired ? (
               <span className="text-danger fw-semibold">
-                <i className="bi bi-exclamation-circle me-1"></i>Hết hạn
+                Hết hạn
               </span>
             ) : (
               <span>
-                <i className="bi bi-calendar3 me-1"></i>
                 Hạn: {new Date(position.deadline).toLocaleDateString('vi-VN')}
               </span>
             )}
