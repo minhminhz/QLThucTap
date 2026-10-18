@@ -1,11 +1,11 @@
 const pool = require('../config/db');
 
 const TaskModel = {
-    async create({ intern_id, mentor_id, title, description, deadline, status = 'TODO' }) {
+    async create({ intern_id, mentor_id, title, description, deadline, status = 'TODO', attachment_file_url = null, attachment_file_name = null }) {
         const [result] = await pool.query(
-            `INSERT INTO tasks (intern_id, mentor_id, title, description, deadline, status)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [intern_id, mentor_id, title, description, deadline, status]
+            `INSERT INTO tasks (intern_id, mentor_id, title, description, deadline, status, attachment_file_url, attachment_file_name)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [intern_id, mentor_id, title, description, deadline, status, attachment_file_url, attachment_file_name]
         );
         return result.insertId;
     },
@@ -73,13 +73,19 @@ const TaskModel = {
         return rows;
     },
 
-    async update(id, { title, description, deadline, status }) {
-        const [result] = await pool.query(
-            `UPDATE tasks 
-             SET title = ?, description = ?, deadline = ?, status = COALESCE(?, status)
-             WHERE id = ?`,
-            [title, description, deadline, status || null, id]
-        );
+    async update(id, { title, description, deadline, status, attachment_file_url, attachment_file_name }) {
+        let sql = `UPDATE tasks SET title = ?, description = ?, deadline = ?, status = COALESCE(?, status)`;
+        const params = [title, description, deadline, status || null];
+
+        if (attachment_file_url !== undefined) {
+            sql += `, attachment_file_url = ?, attachment_file_name = ?`;
+            params.push(attachment_file_url, attachment_file_name || null);
+        }
+
+        sql += ` WHERE id = ?`;
+        params.push(id);
+
+        const [result] = await pool.query(sql, params);
         return result.affectedRows > 0;
     },
 
@@ -91,13 +97,33 @@ const TaskModel = {
         return result.affectedRows > 0;
     },
 
-    async submitResult(id, submission_content) {
-        const [result] = await pool.query(
-            `UPDATE tasks 
-             SET submission_content = ?, status = 'SUBMITTED'
-             WHERE id = ?`,
-            [submission_content, id]
-        );
+    async submitResult(id, submissionData) {
+        let content = '';
+        let fileUrl = null;
+        let fileName = null;
+        let fileSize = null;
+
+        if (typeof submissionData === 'string') {
+            content = submissionData;
+        } else if (submissionData && typeof submissionData === 'object') {
+            content = submissionData.submission_content || '';
+            fileUrl = submissionData.submission_file_url;
+            fileName = submissionData.submission_file_name;
+            fileSize = submissionData.submission_file_size;
+        }
+
+        let sql = `UPDATE tasks SET submission_content = ?, status = 'SUBMITTED'`;
+        const params = [content];
+
+        if (fileUrl !== undefined) {
+            sql += `, submission_file_url = ?, submission_file_name = ?, submission_file_size = ?`;
+            params.push(fileUrl, fileName || null, fileSize || null);
+        }
+
+        sql += ` WHERE id = ?`;
+        params.push(id);
+
+        const [result] = await pool.query(sql, params);
         return result.affectedRows > 0;
     },
 

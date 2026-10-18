@@ -7,6 +7,7 @@ import Loading from '../../components/Loading';
 import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import EmptyState from '../../components/common/EmptyState';
+import { TaskFileBadge, TaskFileInlineEmbed, formatFileSize } from '../../components/TaskFileViewer';
 
 export default function MentorTasks() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -22,10 +23,15 @@ export default function MentorTasks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
 
-  // Modals
+  // Modals & Forms
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTaskForm, setNewTaskForm] = useState({ intern_id: '', title: '', description: '', deadline: '' });
+  const [newTaskFile, setNewTaskFile] = useState(null);
+
   const [editingTask, setEditingTask] = useState(null);
+  const [editTaskFile, setEditTaskFile] = useState(null);
+  const [removeAttachment, setRemoveAttachment] = useState(false);
+
   const [reviewModal, setReviewModal] = useState(null);
   const [feedback, setFeedback] = useState('');
   const [taskDetailModal, setTaskDetailModal] = useState(null);
@@ -58,10 +64,22 @@ export default function MentorTasks() {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/mentor/tasks', newTaskForm);
+      const formData = new FormData();
+      formData.append('intern_id', newTaskForm.intern_id);
+      formData.append('title', newTaskForm.title.trim());
+      formData.append('description', newTaskForm.description || '');
+      formData.append('deadline', newTaskForm.deadline);
+      if (newTaskFile) {
+        formData.append('file', newTaskFile);
+      }
+
+      await api.post('/mentor/tasks', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       await fetchTasksAndInterns();
       setShowCreateModal(false);
       setNewTaskForm({ intern_id: '', title: '', description: '', deadline: '' });
+      setNewTaskFile(null);
     } catch (err) {
       alert(err.response?.data?.message || 'Có lỗi xảy ra khi tạo công việc.');
     }
@@ -71,14 +89,25 @@ export default function MentorTasks() {
     e.preventDefault();
     if (!editingTask) return;
     try {
-      await api.put(`/mentor/tasks/${editingTask.id}`, {
-        title: editingTask.title,
-        description: editingTask.description,
-        deadline: editingTask.deadline,
-        status: editingTask.status,
+      const formData = new FormData();
+      formData.append('title', editingTask.title.trim());
+      formData.append('description', editingTask.description || '');
+      formData.append('deadline', editingTask.deadline);
+      formData.append('status', editingTask.status);
+
+      if (editTaskFile) {
+        formData.append('file', editTaskFile);
+      } else if (removeAttachment) {
+        formData.append('remove_attachment', 'true');
+      }
+
+      await api.put(`/mentor/tasks/${editingTask.id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       await fetchTasksAndInterns();
       setEditingTask(null);
+      setEditTaskFile(null);
+      setRemoveAttachment(false);
     } catch (err) {
       alert(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật công việc.');
     }
@@ -506,18 +535,31 @@ export default function MentorTasks() {
                         <StatusBadge status={task.status} />
                       </td>
                       <td className="small">
-                        {task.submission_content ? (
+                        {(task.submission_content || task.submission_file_url) ? (
                           <div>
-                            <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle mb-1">
-                              <i className="bi bi-file-earmark-check me-1" /> Đã nộp bài
+                            <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle mb-1 d-inline-flex align-items-center gap-1">
+                              <i className="bi bi-file-earmark-check" /> Đã nộp bài
                             </span>
-                            <div
-                              className="text-muted text-truncate"
-                              style={{ maxWidth: '200px' }}
-                              title={task.submission_content}
-                            >
-                              "{task.submission_content}"
-                            </div>
+                            {task.submission_file_url && (
+                              <div className="mt-0.5">
+                                <TaskFileBadge
+                                  fileUrl={task.submission_file_url}
+                                  fileName={task.submission_file_name}
+                                  fileSize={task.submission_file_size}
+                                  label=""
+                                  variant="submission"
+                                />
+                              </div>
+                            )}
+                            {task.submission_content && (
+                              <div
+                                className="text-muted text-truncate mt-1"
+                                style={{ maxWidth: '240px' }}
+                                title={task.submission_content}
+                              >
+                                "{task.submission_content}"
+                              </div>
+                            )}
                           </div>
                         ) : task.feedback ? (
                           <div
@@ -656,11 +698,51 @@ export default function MentorTasks() {
                         className="form-control"
                       />
                     </div>
+
+                    <div className="mb-3">
+                      <label className="form-label small fw-semibold">
+                        <i className="bi bi-paperclip text-primary me-1" />
+                        Đính kèm tài liệu đề bài / Hướng dẫn (Tùy chọn)
+                      </label>
+                      <input
+                        type="file"
+                        className="form-control form-control-sm"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.zip,.rar,.7z,.tar,.gz,.txt,.csv,.json,.md"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setNewTaskFile(e.target.files[0]);
+                          } else {
+                            setNewTaskFile(null);
+                          }
+                        }}
+                      />
+                      {newTaskFile && (
+                        <div className="d-flex align-items-center justify-content-between mt-1.5 p-2 bg-light border rounded small">
+                          <span className="text-truncate me-2">
+                            <i className="bi bi-file-earmark-check text-success me-1"></i>
+                            {newTaskFile.name} ({formatFileSize(newTaskFile.size)})
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link text-danger p-0 text-decoration-none"
+                            onClick={() => setNewTaskFile(null)}
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      )}
+                      <div className="form-text small" style={{ fontSize: '0.72rem' }}>
+                        Hỗ trợ PDF, Word, Excel, PowerPoint, Ảnh, Tệp nén ZIP/RAR (Tối đa 30MB)
+                      </div>
+                    </div>
                   </div>
                   <div className="modal-footer bg-light py-2">
                     <button
                       type="button"
-                      onClick={() => setShowCreateModal(false)}
+                      onClick={() => {
+                        setShowCreateModal(false);
+                        setNewTaskFile(null);
+                      }}
                       className="btn btn-sm btn-outline-secondary"
                     >
                       Hủy bỏ
@@ -691,7 +773,11 @@ export default function MentorTasks() {
                   <button
                     type="button"
                     className="btn-close"
-                    onClick={() => setEditingTask(null)}
+                    onClick={() => {
+                      setEditingTask(null);
+                      setEditTaskFile(null);
+                      setRemoveAttachment(false);
+                    }}
                     aria-label="Close"
                   />
                 </div>
@@ -766,11 +852,83 @@ export default function MentorTasks() {
                         className="form-control"
                       />
                     </div>
+
+                    {/* Attachment file handling */}
+                    <div className="mb-3">
+                      <label className="form-label small fw-semibold">
+                        <i className="bi bi-paperclip text-primary me-1" />
+                        Tài liệu đề bài đính kèm
+                      </label>
+                      {editingTask.attachment_file_url && !removeAttachment && !editTaskFile && (
+                        <div className="mb-2">
+                          <TaskFileBadge
+                            fileUrl={editingTask.attachment_file_url}
+                            fileName={editingTask.attachment_file_name}
+                            label="Tài liệu hiện tại:"
+                            variant="attachment"
+                          />
+                          <div className="mt-1">
+                            <button
+                              type="button"
+                              onClick={() => setRemoveAttachment(true)}
+                              className="btn btn-sm btn-link text-danger p-0 small text-decoration-none"
+                            >
+                              <i className="bi bi-x-circle me-1"></i> Gỡ bỏ tài liệu này
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {removeAttachment && (
+                        <div className="alert alert-warning py-1.5 px-2.5 small d-flex align-items-center justify-content-between mb-2">
+                          <span>Đã đánh dấu xóa tài liệu đính kèm cũ.</span>
+                          <button
+                            type="button"
+                            onClick={() => setRemoveAttachment(false)}
+                            className="btn btn-xs btn-link p-0 text-decoration-none"
+                          >
+                            Hoàn tác
+                          </button>
+                        </div>
+                      )}
+
+                      <input
+                        type="file"
+                        className="form-control form-control-sm"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.zip,.rar,.7z,.tar,.gz,.txt,.csv,.json,.md"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setEditTaskFile(e.target.files[0]);
+                            setRemoveAttachment(false);
+                          } else {
+                            setEditTaskFile(null);
+                          }
+                        }}
+                      />
+                      {editTaskFile && (
+                        <div className="d-flex align-items-center justify-content-between mt-1.5 p-2 bg-light border rounded small">
+                          <span className="text-truncate me-2 text-success">
+                            <i className="bi bi-check-circle me-1"></i> Tệp mới: {editTaskFile.name} ({formatFileSize(editTaskFile.size)})
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link text-danger p-0 text-decoration-none"
+                            onClick={() => setEditTaskFile(null)}
+                          >
+                            Hủy đổi
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="modal-footer bg-light py-2">
                     <button
                       type="button"
-                      onClick={() => setEditingTask(null)}
+                      onClick={() => {
+                        setEditingTask(null);
+                        setEditTaskFile(null);
+                        setRemoveAttachment(false);
+                      }}
                       className="btn btn-sm btn-outline-secondary"
                     >
                       Hủy bỏ
@@ -791,16 +949,16 @@ export default function MentorTasks() {
       {reviewModal && (
         <>
           <div className="modal show d-block" tabIndex="-1" role="dialog">
-            <div className="modal-dialog modal-dialog-centered" role="document">
-              <div className="modal-content shadow">
-                <div className="modal-header bg-white py-3">
-                  <h5 className="modal-title fw-bold text-dark">
-                    <i className="bi bi-clipboard-check text-primary me-2"></i>
+            <div className="modal-dialog modal-lg modal-dialog-centered" role="document">
+              <div className="modal-content shadow border-0">
+                <div className="modal-header bg-primary text-white py-3">
+                  <h5 className="modal-title fw-bold">
+                    <i className="bi bi-clipboard-check-fill me-2"></i>
                     Chấm duyệt bài nộp: {reviewModal.task.title}
                   </h5>
                   <button
                     type="button"
-                    className="btn-close"
+                    className="btn-close btn-close-white"
                     onClick={() => setReviewModal(null)}
                     aria-label="Close"
                   />
@@ -818,19 +976,37 @@ export default function MentorTasks() {
                       </div>
                     </div>
 
-                    {/* Submission content */}
+                    {/* Submission content (Text / Links) */}
                     <div className="mb-3">
                       <label className="form-label small fw-semibold text-primary">
                         <i className="bi bi-file-earmark-text me-1" />
-                        Kết quả nộp bài của Thực tập sinh:
+                        Mô tả kết quả nộp bài:
                       </label>
                       <div
                         className="p-3 bg-light rounded border small text-dark"
-                        style={{ whiteSpace: 'pre-wrap', maxHeight: '180px', overflowY: 'auto' }}
+                        style={{ whiteSpace: 'pre-wrap', maxHeight: '140px', overflowY: 'auto' }}
                       >
                         {reviewModal.task.submission_content || '(Không có nội dung mô tả kèm theo)'}
                       </div>
                     </div>
+
+                    {/* Submission file preview (PDF, Image, Word, Zip, etc.) */}
+                    {reviewModal.task.submission_file_url && (
+                      <div className="mb-3">
+                        <label className="form-label small fw-semibold text-primary d-flex align-items-center justify-content-between mb-1">
+                          <span>
+                            <i className="bi bi-file-earmark-arrow-up-fill me-1 text-success" />
+                            Tệp kết quả bài nộp của Thực tập sinh (Xem trước trực tiếp):
+                          </span>
+                        </label>
+                        <TaskFileInlineEmbed
+                          fileUrl={reviewModal.task.submission_file_url}
+                          fileName={reviewModal.task.submission_file_name}
+                          fileSize={reviewModal.task.submission_file_size}
+                          maxHeight="360px"
+                        />
+                      </div>
+                    )}
 
                     {/* Verdict options */}
                     <div className="mb-3">
@@ -908,9 +1084,9 @@ export default function MentorTasks() {
       {taskDetailModal && (
         <>
           <div className="modal show d-block" tabIndex="-1" role="dialog">
-            <div className="modal-dialog modal-dialog-centered" role="document">
-              <div className="modal-content shadow">
-                <div className="modal-header bg-white py-3">
+            <div className="modal-dialog modal-lg modal-dialog-centered" role="document">
+              <div className="modal-content shadow border-0">
+                <div className="modal-header bg-white py-3 border-bottom">
                   <h5 className="modal-title fw-bold text-dark">
                     <i className="bi bi-info-circle text-primary me-2"></i>
                     Chi tiết công việc
@@ -945,23 +1121,49 @@ export default function MentorTasks() {
 
                   <div className="mb-3">
                     <h6 className="fw-semibold text-dark small mb-1">Mô tả công việc:</h6>
-                    <p className="text-secondary small" style={{ whiteSpace: 'pre-wrap' }}>
+                    <p className="text-secondary small mb-2" style={{ whiteSpace: 'pre-wrap' }}>
                       {taskDetailModal.description || '(Không có mô tả chi tiết)'}
                     </p>
+                    {taskDetailModal.attachment_file_url && (
+                      <div className="mt-2">
+                        <TaskFileBadge
+                          fileUrl={taskDetailModal.attachment_file_url}
+                          fileName={taskDetailModal.attachment_file_name}
+                          label="Tài liệu đề bài / Hướng dẫn đính kèm:"
+                          variant="attachment"
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  {taskDetailModal.submission_content && (
+                  {(taskDetailModal.submission_content || taskDetailModal.submission_file_url) && (
                     <div className="mb-3">
-                      <h6 className="fw-semibold text-primary small mb-1">Kết quả bài nộp của Thực tập sinh:</h6>
-                      <div className="p-3 bg-light rounded border small text-dark" style={{ whiteSpace: 'pre-wrap' }}>
-                        {taskDetailModal.submission_content}
-                      </div>
+                      <h6 className="fw-semibold text-primary small mb-1">
+                        <i className="bi bi-send-check me-1"></i> Kết quả bài nộp của Thực tập sinh:
+                      </h6>
+                      {taskDetailModal.submission_content && (
+                        <div className="p-3 bg-light rounded border small text-dark mb-2" style={{ whiteSpace: 'pre-wrap' }}>
+                          {taskDetailModal.submission_content}
+                        </div>
+                      )}
+                      {taskDetailModal.submission_file_url && (
+                        <div className="mt-2">
+                          <TaskFileInlineEmbed
+                            fileUrl={taskDetailModal.submission_file_url}
+                            fileName={taskDetailModal.submission_file_name}
+                            fileSize={taskDetailModal.submission_file_size}
+                            maxHeight="320px"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {taskDetailModal.feedback && (
                     <div className="mb-3">
-                      <h6 className="fw-semibold text-success small mb-1">Nhận xét của Mentor:</h6>
+                      <h6 className="fw-semibold text-success small mb-1">
+                        <i className="bi bi-chat-square-quote me-1"></i> Nhận xét & Đánh giá của Mentor:
+                      </h6>
                       <div className="p-3 bg-success-subtle border border-success-subtle rounded small text-dark">
                         {taskDetailModal.feedback}
                       </div>
@@ -1018,6 +1220,22 @@ function KanbanCard({ task, isSubmitted, onReview, onEdit, onDelete, onViewDetai
             {task.title}
           </strong>
         </div>
+
+        {/* Indicators for attachments / submissions */}
+        {(task.attachment_file_url || task.submission_file_url) && (
+          <div className="d-flex flex-wrap gap-1 mb-2">
+            {task.attachment_file_url && (
+              <span className="badge bg-light text-primary border" title="Có tài liệu đề bài đính kèm">
+                <i className="bi bi-paperclip me-1"></i> Đề bài
+              </span>
+            )}
+            {task.submission_file_url && (
+              <span className="badge bg-success-subtle text-success-emphasis border border-success-subtle" title="Có tệp kết quả bài nộp">
+                <i className="bi bi-file-earmark-arrow-up-fill me-1 text-success"></i> Có file nộp
+              </span>
+            )}
+          </div>
+        )}
 
         <p
           className="text-muted small mb-2 text-truncate"

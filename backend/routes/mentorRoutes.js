@@ -5,6 +5,8 @@ const TaskController = require('../controllers/taskController');
 const { verifyToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
 
+const { uploadTaskAttachment } = require('../middlewares/uploadMiddleware');
+
 router.use(verifyToken, requireRole('MENTOR', 'ADMIN'));
 
 // Dashboard
@@ -17,9 +19,9 @@ router.patch('/interns/:id/final-review', MentorController.submitFinalReview);
 
 // Task management (operations done by mentor)
 router.get('/tasks', MentorController.getAllTasks);
-router.post('/tasks', TaskController.createTask);
+router.post('/tasks', uploadTaskAttachment.single('file'), TaskController.createTask);
 router.get('/tasks/:id', MentorController.getTaskDetail);
-router.put('/tasks/:id', TaskController.updateTask);
+router.put('/tasks/:id', uploadTaskAttachment.single('file'), TaskController.updateTask);
 router.delete('/tasks/:id', TaskController.deleteTask);
 router.patch('/tasks/:id/review', TaskController.reviewTask);
 router.put('/tasks/:id/review', TaskController.reviewTask);

@@ -25,6 +25,13 @@ const TaskController = {
     async createTask(req, res, next) {
         try {
             const { intern_id, title, description, deadline } = req.body;
+            let attachment_file_url = null;
+            let attachment_file_name = null;
+
+            if (req.file) {
+                attachment_file_url = `/uploads/task_attachments/${req.file.filename}`;
+                attachment_file_name = req.file.originalname;
+            }
 
             if (!intern_id || !title || !description || !deadline) {
                 return res.status(400).json({
@@ -55,7 +62,9 @@ const TaskController = {
                 title,
                 description,
                 deadline,
-                status: 'TODO'
+                status: 'TODO',
+                attachment_file_url,
+                attachment_file_name
             });
 
             const newTask = await TaskModel.findById(taskId);
@@ -105,13 +114,25 @@ const TaskController = {
                 });
             }
 
-            const { title, description, deadline, status } = req.body;
+            const { title, description, deadline, status, remove_attachment } = req.body;
+            let attachment_file_url = undefined;
+            let attachment_file_name = undefined;
+
+            if (req.file) {
+                attachment_file_url = `/uploads/task_attachments/${req.file.filename}`;
+                attachment_file_name = req.file.originalname;
+            } else if (remove_attachment === 'true' || remove_attachment === true) {
+                attachment_file_url = null;
+                attachment_file_name = null;
+            }
 
             await TaskModel.update(task.id, {
                 title: title || task.title,
                 description: description || task.description,
                 deadline: deadline || task.deadline,
-                status: status || task.status
+                status: status || task.status,
+                attachment_file_url,
+                attachment_file_name
             });
 
             const updatedTask = await TaskModel.findById(task.id);
@@ -357,7 +378,8 @@ const TaskController = {
     // PATCH /api/intern/tasks/:id/status
     async updateTaskStatus(req, res, next) {
         try {
-            const { status, submission_content } = req.body;
+            const { status } = req.body;
+            const submission_content = req.body.submission_content ? req.body.submission_content.trim() : '';
             const valid = ['TODO', 'IN_PROGRESS', 'SUBMITTED'];
 
             if (!status || !valid.includes(status)) {
@@ -367,8 +389,21 @@ const TaskController = {
                 });
             }
 
-            if (status === 'SUBMITTED' && (!submission_content || !submission_content.trim())) {
-                return res.status(400).json({ success: false, message: 'Vui lòng cung cấp nội dung kết quả khi nộp bài.' });
+            let submission_file_url = undefined;
+            let submission_file_name = undefined;
+            let submission_file_size = undefined;
+
+            if (req.file) {
+                submission_file_url = `/uploads/task_submissions/${req.file.filename}`;
+                submission_file_name = req.file.originalname;
+                submission_file_size = req.file.size;
+            }
+
+            if (status === 'SUBMITTED' && !submission_content && !req.file) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Vui lòng cung cấp nội dung mô tả hoặc tải lên file kết quả khi nộp bài.'
+                });
             }
 
             const task = await TaskModel.findById(req.params.id);
@@ -386,9 +421,14 @@ const TaskController = {
                 });
             }
 
-            // If submitting, use submitResult to save content
+            // If submitting, use submitResult to save content & file
             if (status === 'SUBMITTED') {
-                await TaskModel.submitResult(task.id, submission_content.trim());
+                await TaskModel.submitResult(task.id, {
+                    submission_content,
+                    submission_file_url,
+                    submission_file_name,
+                    submission_file_size
+                });
 
                 // Notify Mentor
                 try {
@@ -424,12 +464,22 @@ const TaskController = {
     // PUT /api/intern/tasks/:id/submit
     async submitTaskResult(req, res, next) {
         try {
-            const { submission_content } = req.body;
+            const submission_content = req.body.submission_content ? req.body.submission_content.trim() : '';
 
-            if (!submission_content || submission_content.trim() === '') {
+            let submission_file_url = undefined;
+            let submission_file_name = undefined;
+            let submission_file_size = undefined;
+
+            if (req.file) {
+                submission_file_url = `/uploads/task_submissions/${req.file.filename}`;
+                submission_file_name = req.file.originalname;
+                submission_file_size = req.file.size;
+            }
+
+            if (!submission_content && !req.file) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Vui lòng cung cấp nội dung kết quả thực hiện (Link tài liệu, Github repo, hoặc mô tả chi tiết).'
+                    message: 'Vui lòng cung cấp nội dung kết quả thực hiện (link/mô tả) hoặc tải lên file bài nộp (PDF, Word, PNG/JPG, ZIP,...).'
                 });
             }
 
@@ -448,7 +498,12 @@ const TaskController = {
                 });
             }
 
-            await TaskModel.submitResult(task.id, submission_content.trim());
+            await TaskModel.submitResult(task.id, {
+                submission_content,
+                submission_file_url,
+                submission_file_name,
+                submission_file_size
+            });
             const updated = await TaskModel.findById(task.id);
 
             // Notify Mentor

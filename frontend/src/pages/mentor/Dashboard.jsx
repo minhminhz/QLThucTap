@@ -8,6 +8,7 @@ import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import EmptyState from '../../components/common/EmptyState';
 import CvViewerModal from '../../components/common/CvViewerModal';
+import { TaskFileInlineEmbed } from '../../components/TaskFileViewer';
 
 // ─── Helper: tính % tiến trình thời gian ────────────────────────────────────
 function calcProgress(startDate, endDate) {
@@ -598,14 +599,14 @@ export default function MentorDashboard() {
       {reviewModal && (
         <>
           <div className="modal show d-block" tabIndex="-1" role="dialog">
-            <div className="modal-dialog modal-dialog-centered" role="document">
-              <div className="modal-content shadow">
-                <div className="modal-header bg-white py-3">
-                  <h5 className="modal-title fw-bold text-dark">
-                    <i className="bi bi-clipboard-check text-primary me-2" />
+            <div className="modal-dialog modal-lg modal-dialog-centered" role="document">
+              <div className="modal-content shadow border-0">
+                <div className="modal-header bg-primary text-white py-3">
+                  <h5 className="modal-title fw-bold">
+                    <i className="bi bi-clipboard-check-fill me-2" />
                     Chấm duyệt: {reviewModal.task.title}
                   </h5>
-                  <button type="button" className="btn-close" onClick={() => setReviewModal(null)} aria-label="Close" />
+                  <button type="button" className="btn-close btn-close-white" onClick={() => setReviewModal(null)} aria-label="Close" />
                 </div>
                 <form onSubmit={handleReview}>
                   <div className="modal-body p-4">
@@ -620,11 +621,27 @@ export default function MentorDashboard() {
                       </div>
                     </div>
                     <div className="mb-3">
-                      <label className="form-label small fw-semibold text-primary">Kết quả nộp bài:</label>
-                      <div className="p-3 bg-light rounded border small text-dark" style={{ whiteSpace: 'pre-wrap' }}>
+                      <label className="form-label small fw-semibold text-primary">Mô tả kết quả nộp bài:</label>
+                      <div className="p-3 bg-light rounded border small text-dark" style={{ whiteSpace: 'pre-wrap', maxHeight: '140px', overflowY: 'auto' }}>
                         {reviewModal.task.submission_content || '(Không có nội dung mô tả kèm theo)'}
                       </div>
                     </div>
+                    {reviewModal.task.submission_file_url && (
+                      <div className="mb-3">
+                        <label className="form-label small fw-semibold text-primary d-flex align-items-center justify-content-between mb-1">
+                          <span>
+                            <i className="bi bi-file-earmark-arrow-up-fill me-1 text-success" />
+                            Tệp kết quả bài nộp của Thực tập sinh (Xem trước trực tiếp):
+                          </span>
+                        </label>
+                        <TaskFileInlineEmbed
+                          fileUrl={reviewModal.task.submission_file_url}
+                          fileName={reviewModal.task.submission_file_name}
+                          fileSize={reviewModal.task.submission_file_size}
+                          maxHeight="340px"
+                        />
+                      </div>
+                    )}
                     <div className="mb-3">
                       <label className="form-label small fw-semibold" htmlFor="dash_feedback">
                         Nhận xét &amp; Góp ý <span className="text-danger">*</span>

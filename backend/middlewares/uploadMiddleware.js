@@ -44,6 +44,70 @@ const uploadCV = multer({
     fileFilter: fileFilter
 });
 
+const taskAttachmentDir = path.join(__dirname, '..', 'uploads', 'task_attachments');
+if (!fs.existsSync(taskAttachmentDir)) {
+    fs.mkdirSync(taskAttachmentDir, { recursive: true });
+}
+
+const taskSubmissionDir = path.join(__dirname, '..', 'uploads', 'task_submissions');
+if (!fs.existsSync(taskSubmissionDir)) {
+    fs.mkdirSync(taskSubmissionDir, { recursive: true });
+}
+
+const taskFileFilter = (req, file, cb) => {
+    const allowedExtensions = [
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+        '.png', '.jpg', '.jpeg', '.webp', '.gif',
+        '.zip', '.rar', '.7z', '.tar', '.gz',
+        '.txt', '.csv', '.json', '.md'
+    ];
+    const ext = path.extname(file.originalname).toLowerCase();
+
+    if (allowedExtensions.includes(ext)) {
+        cb(null, true);
+    } else {
+        cb(new Error(`Định dạng tệp "${ext}" không được hỗ trợ! Vui lòng tải lên file PDF, DOC/DOCX, PNG/JPG, ZIP/RAR hoặc bảng tính.`), false);
+    }
+};
+
+const storageTaskAttachment = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, taskAttachmentDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname).toLowerCase();
+        const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+        cb(null, `task_${uniqueSuffix}_${baseName}${ext}`);
+    }
+});
+
+const storageTaskSubmission = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, taskSubmissionDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname).toLowerCase();
+        const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+        cb(null, `submit_${uniqueSuffix}_${baseName}${ext}`);
+    }
+});
+
+const uploadTaskAttachment = multer({
+    storage: storageTaskAttachment,
+    limits: { fileSize: 30 * 1024 * 1024 }, // 30MB
+    fileFilter: taskFileFilter
+});
+
+const uploadTaskSubmission = multer({
+    storage: storageTaskSubmission,
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    fileFilter: taskFileFilter
+});
+
 module.exports = {
-    uploadCV
+    uploadCV,
+    uploadTaskAttachment,
+    uploadTaskSubmission
 };

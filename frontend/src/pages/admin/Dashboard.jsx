@@ -88,6 +88,10 @@ export default function AdminDashboard() {
   // Form & Lọc người dùng
   const [showUserForm, setShowUserForm] = useState(false);
   const [userRoleFilter, setUserRoleFilter] = useState('');
+  const [userBranchFilter, setUserBranchFilter] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [userPage, setUserPage] = useState(1);
+  const USER_PAGE_SIZE = 8;
   const [userForm, setUserForm] = useState({
     full_name: '',
     email: '',
@@ -188,7 +192,7 @@ export default function AdminDashboard() {
     const newStatus = branch.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
       await api.patch(`/admin/branches/${branch.id}/status`, { status: newStatus });
-    } catch {}
+    } catch { }
     setBranches((prev) =>
       prev.map((b) => (b.id === branch.id ? { ...b, status: newStatus } : b))
     );
@@ -221,7 +225,7 @@ export default function AdminDashboard() {
     const newStatus = (user.status || 'ACTIVE') === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
       await api.patch(`/admin/users/${user.id}/status`, { status: newStatus });
-    } catch {}
+    } catch { }
     setUsers((prev) =>
       prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
     );
@@ -283,11 +287,23 @@ export default function AdminDashboard() {
   const totalCvPages = Math.ceil(filteredApps.length / CV_PAGE_SIZE) || 1;
   const paginatedApps = filteredApps.slice((cvPage - 1) * CV_PAGE_SIZE, cvPage * CV_PAGE_SIZE);
 
-  // Lọc người dùng
+  // Lọc và phân trang người dùng
   const filteredUsers = users.filter((u) => {
-    if (!userRoleFilter) return true;
-    return u.role === userRoleFilter;
+    const matchRole = !userRoleFilter || u.role === userRoleFilter;
+    const matchBranch = !userBranchFilter || String(u.branch_id) === String(userBranchFilter);
+    const searchLower = userSearch.trim().toLowerCase();
+    const matchSearch =
+      !searchLower ||
+      u.full_name?.toLowerCase().includes(searchLower) ||
+      u.email?.toLowerCase().includes(searchLower) ||
+      u.phone?.toLowerCase().includes(searchLower) ||
+      u.branch_name?.toLowerCase().includes(searchLower) ||
+      (ROLE_LABELS[u.role] || u.role)?.toLowerCase().includes(searchLower);
+    return matchRole && matchBranch && matchSearch;
   });
+  const totalUserPages = Math.ceil(filteredUsers.length / USER_PAGE_SIZE) || 1;
+  const safeUserPage = Math.min(userPage, totalUserPages) || 1;
+  const paginatedUsers = filteredUsers.slice((safeUserPage - 1) * USER_PAGE_SIZE, safeUserPage * USER_PAGE_SIZE);
 
   return (
     <DashboardLayout>
@@ -314,13 +330,15 @@ export default function AdminDashboard() {
                 title="Làm mới dữ liệu hệ thống"
               >
                 <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin' : ''}`}></i>
-                <span>{refreshing ? 'Đang tải...' : 'Làm mới'}</span>
+                <span>{refreshing ? 'Đang tải...' : ''}</span>
               </button>
-              <Link to="/admin/branches" className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1 shadow-sm">
-                <i className="bi bi-buildings"></i> Quản lý cơ sở
+              <Link to="/admin/branches" className="btn btn-sm btn-outline-primary d-flex align-items-center gap-2 shadow-sm">
+                <i className="bi bi-buildings"></i>
+                <span>Quản lý cơ sở</span>
               </Link>
-              <Link to="/admin/users" className="btn btn-sm btn-primary d-flex align-items-center gap-1 shadow-sm">
-                <i className="bi bi-people-fill"></i> Quản lý người dùng
+              <Link to="/admin/users" className="btn btn-sm btn-primary d-flex align-items-center gap-2 shadow-sm">
+                <i className="bi bi-people-fill"></i>
+                <span>Quản lý người dùng</span>
               </Link>
             </div>
           </PageHeader>
@@ -371,10 +389,10 @@ export default function AdminDashboard() {
               <div>
                 <h5 className="fw-bold text-dark mb-0">
                   <i className="bi bi-diagram-3-fill text-primary me-2"></i>
-                  Thống kê nhân sự từng cơ sở
+                  Cơ sở
                 </h5>
                 <span className="text-muted small">
-                  Hiển thị hệ thống {branches.length} chi nhánh trên toàn quốc
+                  {branches.length} chi nhánh
                 </span>
               </div>
               <div className="d-flex gap-1">
@@ -411,7 +429,7 @@ export default function AdminDashboard() {
                     <div
                       key={b.id}
                       className="card border shadow-xs flex-shrink-0"
-                      style={{ width: '310px' }}
+                      style={{ width: '320px' }}
                     >
                       <div className="card-body p-3 d-flex flex-column justify-content-between">
                         <div>
@@ -421,29 +439,41 @@ export default function AdminDashboard() {
                             </h6>
                             <StatusBadge status={b.status} />
                           </div>
-                          <p className="text-muted small text-truncate mb-3" title={b.address}>
-                            <i className="bi bi-geo-alt me-1 text-primary"></i>
-                            {b.address}
+                          <p className="text-muted small text-truncate mb-3 d-flex align-items-center gap-2" title={b.address}>
+                            <i className="bi bi-geo-alt text-primary flex-shrink-0"></i>
+                            <span className="text-truncate">{b.address}</span>
                           </p>
 
-                          <div className="bg-light p-2.5 rounded border small mb-3 d-flex flex-column gap-1.5">
-                            <div className="d-flex justify-content-between">
-                              <span className="text-muted">Nhân sự HR:</span>
+                          <div className="bg-light p-3 rounded border small mb-3 d-flex flex-column gap-2">
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span className="text-muted d-flex align-items-center gap-2">
+                                <i className="bi bi-person-badge text-primary"></i>
+                                <span>Nhân sự HR:</span>
+                              </span>
                               <strong className="text-dark">{branchHRs.length} người</strong>
                             </div>
-                            <div className="d-flex justify-content-between">
-                              <span className="text-muted">Mentor hướng dẫn:</span>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span className="text-muted d-flex align-items-center gap-2">
+                                <i className="bi bi-person-video3 text-success"></i>
+                                <span>Mentor hướng dẫn:</span>
+                              </span>
                               <strong className="text-dark">{branchMentors.length} người</strong>
                             </div>
-                            <div className="d-flex justify-content-between">
-                              <span className="text-muted">Thực tập sinh:</span>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span className="text-muted d-flex align-items-center gap-2">
+                                <i className="bi bi-mortarboard text-info"></i>
+                                <span>Thực tập sinh:</span>
+                              </span>
                               <strong className="text-dark">{branchInterns.length} người</strong>
                             </div>
                           </div>
                         </div>
 
                         <div className="d-flex justify-content-between align-items-center pt-2 border-top small">
-                          <span className="text-muted">Tổng nhân lực:</span>
+                          <span className="text-muted d-flex align-items-center gap-2">
+                            <i className="bi bi-people text-secondary"></i>
+                            <span>Tổng nhân lực:</span>
+                          </span>
                           <strong className="text-primary fs-6">{totalPersonnel} người</strong>
                         </div>
                       </div>
@@ -463,7 +493,7 @@ export default function AdminDashboard() {
                   Đội ngũ chuyên viên Nhân sự (HR)
                 </h5>
                 <span className="text-muted small">
-                  Danh sách phụ trách và thông tin liên hệ ({hrUsers.length} nhân sự)
+                  {hrUsers.length} nhân sự
                 </span>
               </div>
               <Pagination
@@ -480,43 +510,54 @@ export default function AdminDashboard() {
                     <div className="card h-100 border shadow-xs bg-light">
                       <div className="card-body p-3 d-flex flex-column justify-content-between">
                         <div>
-                          <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
-                            <div className="d-flex align-items-center gap-2.5">
+                          <div className="d-flex align-items-start justify-content-between gap-3 mb-3">
+                            <div className="d-flex align-items-center gap-3">
                               <div
-                                className="bg-primary text-white rounded-3 d-flex align-items-center justify-content-center fw-bold"
-                                style={{ width: '40px', height: '40px', fontSize: '1.1rem' }}
+                                className="bg-primary text-white rounded-3 d-flex align-items-center justify-content-center fw-bold shadow-xs flex-shrink-0"
+                                style={{ width: '48px', height: '48px', fontSize: '1.25rem' }}
                               >
                                 {hr.full_name?.[0]?.toUpperCase()}
                               </div>
-                              <div>
-                                <strong className="text-dark d-block">{hr.full_name}</strong>
-                                <span className="badge bg-primary-subtle text-primary border border-primary-subtle small">
-                                  {hr.title || 'Chuyên viên Nhân sự'}
-                                </span>
+                              <div className="d-flex flex-column gap-1">
+                                <strong className="text-dark fs-6 lh-sm mb-0">{hr.full_name}</strong>
+                                <div>
+                                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                                    {hr.title || 'Chuyên viên Nhân sự'}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                             <StatusBadge status={hr.status || 'ACTIVE'} />
                           </div>
 
-                          <div className="bg-white p-2.5 rounded border small mb-2 d-flex flex-column gap-1">
-                            <div>
-                              <span className="text-muted me-1">Email:</span>
-                              <strong className="text-dark">{hr.email}</strong>
+                          <div className="bg-white p-3 rounded border small mb-3 d-flex flex-column gap-2">
+                            <div className="d-flex align-items-center gap-2">
+                              <i className="bi bi-envelope text-muted flex-shrink-0"></i>
+                              <span className="text-muted">Email:</span>
+                              <strong className="text-dark text-truncate ms-1">{hr.email}</strong>
                             </div>
-                            <div>
-                              <span className="text-muted me-1">Điện thoại:</span>
-                              <strong className="text-dark">{hr.phone || '0987 654 321'}</strong>
+                            <div className="d-flex align-items-center gap-2">
+                              <i className="bi bi-telephone text-muted flex-shrink-0"></i>
+                              <span className="text-muted">Điện thoại:</span>
+                              <strong className="text-dark ms-1">{hr.phone || '0987 654 321'}</strong>
                             </div>
-                            <div className="text-truncate">
-                              <span className="text-muted me-1">Cơ sở:</span>
-                              <span className="text-primary fw-medium">{hr.branch_name || 'Toàn hệ thống'}</span>
+                            <div className="d-flex align-items-center gap-2 text-truncate">
+                              <i className="bi bi-geo-alt text-primary flex-shrink-0"></i>
+                              <span className="text-muted">Cơ sở:</span>
+                              <span className="text-primary fw-medium text-truncate ms-1">{hr.branch_name || 'Toàn hệ thống'}</span>
                             </div>
                           </div>
                         </div>
 
-                        <div className="d-flex justify-content-between pt-2 border-top small text-muted">
-                          <span>Phụ trách: <strong className="text-dark">{hr.assigned_interns || 12} TTS</strong></span>
-                          <span>Đã nhận: <strong className="text-dark">{hr.assigned_apps || 18} hồ sơ</strong></span>
+                        <div className="d-flex justify-content-between align-items-center pt-2 border-top small text-muted">
+                          <span className="d-flex align-items-center gap-2">
+                            <i className="bi bi-people text-primary"></i>
+                            <span>Phụ trách: <strong className="text-dark">{hr.assigned_interns || 12} TTS</strong></span>
+                          </span>
+                          <span className="d-flex align-items-center gap-2">
+                            <i className="bi bi-file-earmark-text text-info"></i>
+                            <span>Đã nhận: <strong className="text-dark">{hr.assigned_apps || 18} hồ sơ</strong></span>
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -535,7 +576,7 @@ export default function AdminDashboard() {
                   Danh sách hồ sơ nộp CV gần đây
                 </h5>
                 <span className="text-muted small">
-                  Hiển thị {filteredApps.length} đơn ứng tuyển phù hợp
+                  {filteredApps.length} đơn ứng tuyển
                 </span>
               </div>
 
@@ -664,7 +705,7 @@ export default function AdminDashboard() {
         <div>
           <PageHeader
             title="Quản lý cơ sở thực tập"
-            subtitle="Danh sách các chi nhánh tiếp nhận sinh viên thực tập của doanh nghiệp VYMI Tech"
+            subtitle="Danh sách các chi nhánh"
             breadcrumbs={[
               { label: 'Trang chủ', link: '/' },
               { label: 'Admin', link: '/admin' },
@@ -676,7 +717,7 @@ export default function AdminDashboard() {
               className="btn btn-sm btn-primary d-flex align-items-center gap-1.5"
             >
               <i className={`bi ${showBranchForm ? 'bi-x-lg' : 'bi-plus-lg'}`}></i>
-              <span>{showBranchForm ? 'Đóng biểu mẫu' : 'Thêm cơ sở mới'}</span>
+              <span>{showBranchForm ? 'Đóng' : 'Thêm mới'}</span>
             </button>
           </PageHeader>
 
@@ -686,7 +727,7 @@ export default function AdminDashboard() {
               <div className="card-header bg-white py-3">
                 <h5 className="fw-bold text-dark mb-0">
                   <i className="bi bi-building-add text-primary me-2"></i>
-                  Thêm cơ sở đào tạo mới
+                  Thêm cơ sở mới
                 </h5>
               </div>
               <div className="card-body p-4">
@@ -723,7 +764,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="d-flex gap-2">
                     <button type="submit" className="btn btn-sm btn-primary px-4 fw-semibold">
-                      Tạo cơ sở
+                      Lưu
                     </button>
                     <button
                       type="button"
@@ -760,10 +801,10 @@ export default function AdminDashboard() {
                     {branches.map((branch) => (
                       <tr key={branch.id}>
                         <td className="ps-4">
-                          <div className="d-flex align-items-center gap-2">
+                          <div className="d-flex align-items-center gap-3">
                             <div
-                              className="bg-primary-subtle text-primary border border-primary-subtle rounded-3 d-flex align-items-center justify-content-center"
-                              style={{ width: '36px', height: '36px' }}
+                              className="bg-primary-subtle text-primary border border-primary-subtle rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                              style={{ width: '38px', height: '38px', fontSize: '1.1rem' }}
                             >
                               <i className="bi bi-buildings"></i>
                             </div>
@@ -771,8 +812,10 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="text-secondary small">
-                          <i className="bi bi-geo-alt text-primary me-1"></i>
-                          {branch.address}
+                          <div className="d-flex align-items-center gap-2">
+                            <i className="bi bi-geo-alt text-primary flex-shrink-0"></i>
+                            <span>{branch.address}</span>
+                          </div>
                         </td>
                         <td>
                           <StatusBadge status={branch.status} />
@@ -780,13 +823,13 @@ export default function AdminDashboard() {
                         <td className="text-end pe-4">
                           <button
                             onClick={() => handleToggleBranch(branch)}
-                            className={`btn btn-sm ${
-                              branch.status === 'ACTIVE'
-                                ? 'btn-outline-danger'
-                                : 'btn-outline-success'
-                            }`}
+                            className={`btn btn-sm d-inline-flex align-items-center gap-2 ${branch.status === 'ACTIVE'
+                              ? 'btn-outline-danger'
+                              : 'btn-outline-success'
+                              }`}
                           >
-                            {branch.status === 'ACTIVE' ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                            <i className={`bi ${branch.status === 'ACTIVE' ? 'bi-dash-circle' : 'bi-check-circle'}`}></i>
+                            <span>{branch.status === 'ACTIVE' ? 'Vô hiệu hóa' : 'Kích hoạt'}</span>
                           </button>
                         </td>
                       </tr>
@@ -949,24 +992,101 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Bộ lọc vai trò & Bảng người dùng */}
+          {/* Bộ lọc vai trò, cơ sở, tìm kiếm & Bảng người dùng */}
           <div className="card shadow-sm border">
-            <div className="card-header bg-white d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 py-3">
-              <h5 className="fw-bold text-dark mb-0">Danh sách tài khoản hệ thống</h5>
-              <div className="d-flex align-items-center gap-2">
-                <span className="small text-muted text-nowrap">Lọc vai trò:</span>
-                <select
-                  value={userRoleFilter}
-                  onChange={(e) => setUserRoleFilter(e.target.value)}
-                  className="form-select form-select-sm"
-                  style={{ width: '180px' }}
-                >
-                  <option value="">Tất cả vai trò</option>
-                  <option value="HR">HR (Nhân sự)</option>
-                  <option value="MENTOR">Mentor</option>
-                  <option value="INTERN">Thực tập sinh</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
+            <div className="card-header bg-white py-3">
+              <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                <div className="d-flex align-items-center gap-2">
+                  <h5 className="fw-bold text-dark mb-0">Danh sách tài khoản hệ thống</h5>
+                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">
+                    {filteredUsers.length} tài khoản
+                  </span>
+                </div>
+
+                <div className="d-flex flex-wrap align-items-center gap-2">
+                  {/* Ô tìm kiếm người dùng */}
+                  <div className="input-group input-group-sm" style={{ minWidth: '240px', maxWidth: '320px' }}>
+                    <span className="input-group-text bg-white border-end-0 text-muted">
+                      <i className="bi bi-search"></i>
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control border-start-0 ps-0"
+                      placeholder="Tìm họ tên, email, SĐT, cơ sở..."
+                      value={userSearch}
+                      onChange={(e) => {
+                        setUserSearch(e.target.value);
+                        setUserPage(1);
+                      }}
+                    />
+                    {userSearch && (
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary border-start-0 bg-white text-muted"
+                        onClick={() => {
+                          setUserSearch('');
+                          setUserPage(1);
+                        }}
+                        title="Xóa tìm kiếm"
+                      >
+                        <i className="bi bi-x-lg"></i>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Lọc vai trò */}
+                  <select
+                    value={userRoleFilter}
+                    onChange={(e) => {
+                      setUserRoleFilter(e.target.value);
+                      setUserPage(1);
+                    }}
+                    className="form-select form-select-sm"
+                    style={{ width: '150px' }}
+                  >
+                    <option value="">Tất cả vai trò</option>
+                    <option value="HR">HR (Nhân sự)</option>
+                    <option value="MENTOR">Mentor</option>
+                    <option value="INTERN">Thực tập sinh</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+
+                  {/* Lọc cơ sở */}
+                  <select
+                    value={userBranchFilter}
+                    onChange={(e) => {
+                      setUserBranchFilter(e.target.value);
+                      setUserPage(1);
+                    }}
+                    className="form-select form-select-sm"
+                    style={{ width: '160px' }}
+                  >
+                    <option value="">Tất cả cơ sở</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Nút đặt lại bộ lọc */}
+                  {(userSearch || userRoleFilter || userBranchFilter) && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                      onClick={() => {
+                        setUserSearch('');
+                        setUserRoleFilter('');
+                        setUserBranchFilter('');
+                        setUserPage(1);
+                      }}
+                      title="Đặt lại bộ lọc"
+                    >
+                      <i className="bi bi-arrow-counterclockwise"></i>
+                      <span>Đặt lại</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -984,61 +1104,111 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map((u) => (
-                      <tr key={u.id}>
-                        <td className="ps-4">
-                          <div className="d-flex align-items-center gap-2">
-                            <div
-                              className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold"
-                              style={{ width: '32px', height: '32px', fontSize: '0.85rem' }}
-                            >
-                              {u.full_name?.[0]?.toUpperCase()}
-                            </div>
-                            <strong className="text-dark">{u.full_name}</strong>
+                    {paginatedUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="py-5 text-center text-muted">
+                          <div className="py-3">
+                            <i className="bi bi-person-x display-6 text-secondary d-block mb-2"></i>
+                            <h6 className="fw-bold text-dark mb-1">Không tìm thấy người dùng phù hợp</h6>
+                            <p className="small text-muted mb-3">
+                              {userSearch || userRoleFilter || userBranchFilter
+                                ? 'Thử thay đổi từ khóa tìm kiếm hoặc đặt lại bộ lọc.'
+                                : 'Chưa có tài khoản người dùng nào trong hệ thống.'}
+                            </p>
+                            {(userSearch || userRoleFilter || userBranchFilter) && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => {
+                                  setUserSearch('');
+                                  setUserRoleFilter('');
+                                  setUserBranchFilter('');
+                                  setUserPage(1);
+                                }}
+                              >
+                                <i className="bi bi-arrow-counterclockwise me-1"></i>
+                              </button>
+                            )}
                           </div>
                         </td>
-                        <td className="small">
-                          <div className="text-dark">{u.email}</div>
-                          <div className="text-muted">{u.phone || '—'}</div>
-                        </td>
-                        <td>
-                          <span className="badge bg-light text-dark border">
-                            {ROLE_LABELS[u.role] || u.role}
-                          </span>
-                        </td>
-                        <td className="small text-muted">
-                          {u.branch_name ? (
-                            <span>
-                              <i className="bi bi-geo-alt me-1 text-primary"></i>
-                              {u.branch_name}
+                      </tr>
+                    ) : (
+                      paginatedUsers.map((u) => (
+                        <tr key={u.id}>
+                          <td className="ps-4">
+                            <div className="d-flex align-items-center gap-3">
+                              <div
+                                className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-xs flex-shrink-0"
+                                style={{ width: '38px', height: '38px', fontSize: '0.95rem' }}
+                              >
+                                {u.full_name?.[0]?.toUpperCase()}
+                              </div>
+                              <strong className="text-dark">{u.full_name}</strong>
+                            </div>
+                          </td>
+                          <td className="small">
+                            <div className="text-dark d-flex align-items-center gap-2 mb-1">
+                              <i className="bi bi-envelope text-muted flex-shrink-0"></i>
+                              <span>{u.email}</span>
+                            </div>
+                            <div className="text-muted d-flex align-items-center gap-2">
+                              <i className="bi bi-telephone text-muted flex-shrink-0"></i>
+                              <span>{u.phone || '—'}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge bg-light text-dark border px-2 py-1">
+                              {ROLE_LABELS[u.role] || u.role}
                             </span>
-                          ) : (
-                            <span className="text-secondary">Toàn hệ thống</span>
-                          )}
-                        </td>
-                        <td>
-                          <StatusBadge status={u.status || 'ACTIVE'} />
-                        </td>
-                        <td className="text-end pe-4">
-                          {u.role !== 'ADMIN' && (
-                            <button
-                              onClick={() => handleToggleUser(u)}
-                              className={`btn btn-sm ${
-                                (u.status || 'ACTIVE') === 'ACTIVE'
+                          </td>
+                          <td className="small text-muted">
+                            {u.branch_name ? (
+                              <div className="d-flex align-items-center gap-2">
+                                <i className="bi bi-geo-alt text-primary flex-shrink-0"></i>
+                                <span>{u.branch_name}</span>
+                              </div>
+                            ) : (
+                              <span className="text-secondary">Toàn hệ thống</span>
+                            )}
+                          </td>
+                          <td>
+                            <StatusBadge status={u.status || 'ACTIVE'} />
+                          </td>
+                          <td className="text-end pe-4">
+                            {u.role !== 'ADMIN' && (
+                              <button
+                                onClick={() => handleToggleUser(u)}
+                                className={`btn btn-sm d-inline-flex align-items-center gap-2 ${(u.status || 'ACTIVE') === 'ACTIVE'
                                   ? 'btn-outline-danger'
                                   : 'btn-outline-success'
-                              }`}
-                            >
-                              {(u.status || 'ACTIVE') === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                                  }`}
+                              >
+                                <i className={`bi ${(u.status || 'ACTIVE') === 'ACTIVE' ? 'bi-lock' : 'bi-unlock'}`}></i>
+                                <span>{(u.status || 'ACTIVE') === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
+
+            {/* Phân trang danh sách người dùng */}
+            {totalUserPages > 1 && (
+              <div className="card-footer bg-white d-flex flex-column flex-sm-row justify-content-between align-items-center py-2 px-4 border-top gap-2">
+                <span className="small text-muted">
+                  Hiển thị {((safeUserPage - 1) * USER_PAGE_SIZE) + 1} - {Math.min(safeUserPage * USER_PAGE_SIZE, filteredUsers.length)} trên tổng số {filteredUsers.length} tài khoản
+                </span>
+                <Pagination
+                  currentPage={safeUserPage}
+                  totalPages={totalUserPages}
+                  onPageChange={(p) => setUserPage(p)}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

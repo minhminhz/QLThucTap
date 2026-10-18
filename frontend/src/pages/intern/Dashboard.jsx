@@ -5,6 +5,7 @@ import StatusBadge from '../../components/StatusBadge';
 import TaskCard from '../../components/TaskCard';
 import Loading from '../../components/Loading';
 import PageHeader from '../../components/common/PageHeader';
+import { TaskFileBadge, formatFileSize } from '../../components/TaskFileViewer';
 
 export default function InternDashboard() {
   const [internship, setInternship] = useState(null);
@@ -12,6 +13,7 @@ export default function InternDashboard() {
   const [loading, setLoading] = useState(true);
   const [submitModal, setSubmitModal] = useState(null);
   const [submitContent, setSubmitContent] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -32,23 +34,43 @@ export default function InternDashboard() {
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
   };
 
+  const handleOpenSubmit = (task) => {
+    setSubmitModal(task);
+    setSubmitContent(task.submission_content || '');
+    setSelectedFile(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!submitContent.trim() && !selectedFile && !submitModal?.submission_file_url) {
+      alert('Vui lòng nhập mô tả kết quả hoặc đính kèm tệp kết quả (PDF, Word, Ảnh, Zip)!');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await api.patch(`/intern/tasks/${submitModal.id}/status`, {
-        status: 'SUBMITTED',
-        submission_content: submitContent,
+      const formData = new FormData();
+      formData.append('status', 'SUBMITTED');
+      if (submitContent) {
+        formData.append('submission_content', submitContent.trim());
+      }
+      if (selectedFile) {
+        formData.append('file', selectedFile);
+      }
+
+      const res = await api.patch(`/intern/tasks/${submitModal.id}/status`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
+
+      const updatedTask = res.data.data;
       setTasks((prev) =>
-        prev.map((t) =>
-          t.id === submitModal.id
-            ? { ...t, status: 'SUBMITTED', submission_content: submitContent }
-            : t
-        )
+        prev.map((t) => (t.id === submitModal.id ? updatedTask : t))
       );
       setSubmitModal(null);
       setSubmitContent('');
+      setSelectedFile(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Có lỗi xảy ra khi nộp bài.');
     } finally {
       setSubmitting(false);
     }
@@ -166,7 +188,7 @@ export default function InternDashboard() {
                   task={t}
                   role="INTERN"
                   onStatusChange={handleStatusChange}
-                  onSubmit={(task) => setSubmitModal(task)}
+                  onSubmit={(task) => handleOpenSubmit(task)}
                 />
               </div>
             ))}
@@ -191,7 +213,7 @@ export default function InternDashboard() {
                   task={t}
                   role="INTERN"
                   onStatusChange={handleStatusChange}
-                  onSubmit={(task) => setSubmitModal(task)}
+                  onSubmit={(task) => handleOpenSubmit(task)}
                 />
               </div>
             ))}
@@ -203,38 +225,146 @@ export default function InternDashboard() {
       {submitModal && (
         <>
           <div className="modal show d-block" tabIndex="-1" role="dialog">
-            <div className="modal-dialog modal-dialog-centered" role="document">
-              <div className="modal-content shadow">
-                <div className="modal-header">
-                  <h5 className="modal-title fw-bold text-dark">Nộp kết quả công việc</h5>
+            <div className="modal-dialog modal-lg modal-dialog-centered" role="document">
+              <div className="modal-content shadow border-0">
+                <div className="modal-header bg-primary text-white py-3">
+                  <h5 className="modal-title fw-bold">
+                    <i className="bi bi-cloud-arrow-up-fill me-2"></i>
+                    Nộp kết quả thực hiện công việc
+                  </h5>
                   <button
                     type="button"
-                    className="btn-close"
+                    className="btn-close btn-close-white"
                     onClick={() => setSubmitModal(null)}
                     aria-label="Close"
                   ></button>
                 </div>
                 <form onSubmit={handleSubmit}>
-                  <div className="modal-body">
-                    <p className="text-muted small mb-3">
-                      Nhiệm vụ: <strong className="text-dark">{submitModal.title}</strong>
-                    </p>
+                  <div className="modal-body p-4">
+                    {/* Task Info Summary */}
+                    <div className="bg-light p-3 rounded border mb-3">
+                      <div className="d-flex align-items-start justify-content-between gap-2 mb-1">
+                        <h6 className="fw-bold text-dark mb-0">{submitModal.title}</h6>
+                        <span className="badge bg-secondary">
+                          Hạn chót: {new Date(submitModal.deadline).toLocaleDateString('vi-VN')}
+                        </span>
+                      </div>
+                      <p className="text-muted small mb-2" style={{ whiteSpace: 'pre-wrap' }}>
+                        {submitModal.description}
+                      </p>
+                      {submitModal.attachment_file_url && (
+                        <div className="mt-2 pt-2 border-top">
+                          <TaskFileBadge
+                            fileUrl={submitModal.attachment_file_url}
+                            fileName={submitModal.attachment_file_name}
+                            label="Đề bài / Tài liệu hướng dẫn đính kèm từ Mentor:"
+                            variant="attachment"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Previously submitted file if re-submitting */}
+                    {submitModal.submission_file_url && !selectedFile && (
+                      <div className="mb-3">
+                        <div className="text-muted small fw-semibold mb-1">
+                          Tệp bạn đã nộp trước đó (nếu không chọn tệp mới sẽ giữ nguyên):
+                        </div>
+                        <TaskFileBadge
+                          fileUrl={submitModal.submission_file_url}
+                          fileName={submitModal.submission_file_name}
+                          fileSize={submitModal.submission_file_size}
+                          label="Tệp đã tải lên trước đó:"
+                          variant="submission"
+                        />
+                      </div>
+                    )}
+
+                    {/* Upload File Input */}
                     <div className="mb-3">
+                      <label className="form-label small fw-semibold d-flex align-items-center justify-content-between">
+                        <span>
+                          <i className="bi bi-paperclip text-primary me-1"></i>
+                          Tải lên tệp bài nộp trực tiếp (PDF, DOC, ZIP, PNG, v.v.):
+                        </span>
+                        <span className="text-muted fw-normal" style={{ fontSize: '0.75rem' }}>
+                          Tối đa 50MB
+                        </span>
+                      </label>
+
+                      <div
+                        className="border border-2 border-dashed rounded p-3 text-center bg-white"
+                        style={{ borderColor: selectedFile ? '#0d6efd' : '#dee2e6' }}
+                      >
+                        {selectedFile ? (
+                          <div className="d-flex align-items-center justify-content-between bg-light p-2.5 rounded border">
+                            <div className="d-flex align-items-center gap-2 text-truncate pe-2">
+                              <i className="bi bi-file-earmark-check-fill text-success fs-3"></i>
+                              <div className="text-start text-truncate">
+                                <div className="fw-semibold text-dark text-truncate small">
+                                  {selectedFile.name}
+                                </div>
+                                <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                  {formatFileSize(selectedFile.size)}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFile(null)}
+                              className="btn btn-sm btn-outline-danger py-1 px-2"
+                              title="Hủy chọn tệp này"
+                            >
+                              <i className="bi bi-trash3 me-1"></i> Đổi tệp
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <i className="bi bi-cloud-arrow-up display-6 text-primary mb-2 d-block"></i>
+                            <div className="fw-semibold text-dark small mb-1">
+                              Kéo thả tệp vào đây hoặc nhấn để chọn tệp từ máy tính
+                            </div>
+                            <p className="text-muted mb-2" style={{ fontSize: '0.75rem' }}>
+                              Hỗ trợ: Báo cáo PDF, tài liệu Word (.docx), hình ảnh phân tích (.png, .jpg), tệp nén mã nguồn (.zip, .rar), bảng tính Excel.
+                            </p>
+                            <label className="btn btn-sm btn-outline-primary px-3 cursor-pointer">
+                              <i className="bi bi-folder2-open me-1"></i> Chọn tệp tải lên
+                              <input
+                                type="file"
+                                className="d-none"
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.zip,.rar,.7z,.tar,.gz,.txt,.csv,.json,.md"
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files[0]) {
+                                    setSelectedFile(e.target.files[0]);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Description & Link Textarea */}
+                    <div className="mb-2">
                       <label className="form-label small fw-semibold" htmlFor="submit_content">
-                        Mô tả kết quả thực hiện <span className="text-danger">*</span>
+                        Nội dung mô tả / Link mã nguồn (Git, Google Drive, Swagger...):
                       </label>
                       <textarea
                         id="submit_content"
-                        rows={5}
+                        rows={4}
                         value={submitContent}
                         onChange={(e) => setSubmitContent(e.target.value)}
-                        required
-                        placeholder="Mô tả chi tiết những gì bạn đã hoàn thành, đính kèm link GitHub, Google Drive hoặc tài liệu liên quan..."
+                        placeholder="Mô tả tóm tắt giải pháp, ghi chú hướng dẫn chạy dự án, đính kèm link GitHub repo hoặc tài liệu liên quan..."
                         className="form-control"
                       />
+                      <div className="form-text small">
+                        * Bạn có thể nộp bằng cách đính kèm tệp, hoặc điền mô tả/link Git, hoặc kết hợp cả hai.
+                      </div>
                     </div>
                   </div>
-                  <div className="modal-footer">
+
+                  <div className="modal-footer bg-light py-2 px-3">
                     <button
                       type="button"
                       onClick={() => setSubmitModal(null)}
@@ -250,10 +380,12 @@ export default function InternDashboard() {
                       {submitting ? (
                         <>
                           <span className="spinner-border spinner-border-sm me-2"></span>
-                          Đang gửi...
+                          Đang tải lên & nộp bài...
                         </>
                       ) : (
-                        'Xác nhận nộp bài'
+                        <>
+                          <i className="bi bi-send-fill me-1"></i> Xác nhận nộp bài
+                        </>
                       )}
                     </button>
                   </div>
