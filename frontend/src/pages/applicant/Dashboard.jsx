@@ -15,12 +15,23 @@ export default function ApplicantDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [viewingCv, setViewingCv] = useState(null);
+  const [internship, setInternship] = useState(null);
 
   const fetchApplications = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const r = await api.get('/applications/my');
-      setApplications(r.data.data || []);
+      const [r, iRes] = await Promise.allSettled([
+        api.get('/applications/my'),
+        api.get('/intern/internship')
+      ]);
+      if (r.status === 'fulfilled') {
+        setApplications(r.value.data.data || []);
+      } else {
+        setApplications([]);
+      }
+      if (iRes.status === 'fulfilled' && iRes.value.data?.data) {
+        setInternship(iRes.value.data.data);
+      }
     } catch {
       setApplications([]);
     } finally {
@@ -80,6 +91,29 @@ export default function ApplicantDashboard() {
           </Link>
         </div>
       </PageHeader>
+
+      {/* Internship Profile Banner if applicant has an internship */}
+      {internship && (
+        <div className="card shadow-sm border-0 mb-4 text-white overflow-hidden" style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}>
+          <div className="card-body p-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+            <div>
+              <div className="d-flex align-items-center gap-2 mb-1">
+                <span className="badge bg-warning text-dark fw-bold">HỒ SƠ THỰC TẬP SINH</span>
+                <span className="small text-white-75">{internship.position_title} &bull; {internship.branch_name}</span>
+              </div>
+              <h5 className="fw-bold mb-1">
+                {internship.status === 'COMPLETED' ? '🎓 Bạn đã hoàn thành kỳ thực tập tại VYMI Tech' : '💼 Bạn có hồ sơ Thực tập sinh tại VYMI Tech'}
+              </h5>
+              <p className="mb-0 text-white-50 small">
+                Xem chi tiết nhiệm vụ, kết quả đánh giá Mentor & HR, gửi yêu cầu cấp Giấy xác nhận & Phiếu đánh giá thực tập.
+              </p>
+            </div>
+            <Link to="/intern" className="btn btn-warning fw-bold text-dark shadow-sm px-3 py-2">
+              <i className="bi bi-mortarboard-fill me-1" /> Chuyển đến Trang Thực tập sinh
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="row g-3 mb-4">

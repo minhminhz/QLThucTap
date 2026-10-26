@@ -531,6 +531,248 @@ const TaskController = {
         } catch (err) {
             next(err);
         }
+    },
+
+    // POST /api/intern/internship/request-certificate
+    async requestCertificate(req, res, next) {
+        try {
+            const intern = await InternModel.findByUserId(req.user.id);
+            if (!intern) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ thực tập.' });
+
+            // Can request if Mentor evaluated or HR confirmed or completed
+            const canRequest = intern.hr_result === 'PASSED' || intern.mentor_evaluated_at || intern.status === 'COMPLETED' || intern.mentor_recommendation === 'PASS';
+            if (!canRequest) {
+                return res.status(400).json({ success: false, message: 'Kỳ thực tập của bạn cần được Mentor hoàn thành đánh giá hoặc HR xác nhận trước khi yêu cầu cấp giấy.' });
+            }
+
+            if (intern.certificate_status === 'APPROVED') {
+                return res.status(400).json({ success: false, message: 'Giấy xác nhận thực tập của bạn đã được cấp rồi.' });
+            }
+
+            const {
+                certificate_request_note,
+                custom_intern_name,
+                student_dob,
+                student_gender,
+                student_phone,
+                student_address,
+                school_name,
+                faculty_name,
+                student_code,
+                university_class,
+                major_name,
+                academic_year
+            } = req.body;
+
+            await InternModel.requestCertificate(intern.id, {
+                certificate_request_note: certificate_request_note || null,
+                custom_intern_name: custom_intern_name || null,
+                student_dob: student_dob || null,
+                student_gender: student_gender || null,
+                student_phone: student_phone || null,
+                student_address: student_address || null,
+                school_name: school_name || null,
+                faculty_name: faculty_name || null,
+                student_code: student_code || null,
+                university_class: university_class || null,
+                major_name: major_name || null,
+                academic_year: academic_year || null
+            });
+
+            // Notify HRs
+            try {
+                const NotificationService = require('../services/notificationService');
+                await NotificationService.notifyHRs({
+                    branchId: intern.branch_id,
+                    senderId: req.user.id,
+                    title: 'Yêu cầu cấp Giấy xác nhận & Đánh giá thực tập 📜',
+                    message: `Thực tập sinh "${intern.intern_name}" (Vị trí: ${intern.position_title}) đã gửi yêu cầu cấp Giấy xác nhận & Phiếu đánh giá thực tập. Vui lòng kiểm tra và phê duyệt.`,
+                    type: 'INTERNSHIP',
+                    link: '/hr/interns'
+                });
+            } catch (notifyErr) {
+                console.error('Notification error in requestCertificate:', notifyErr.message);
+            }
+
+            const updated = await InternModel.findByUserId(req.user.id);
+            return res.status(200).json({ success: true, message: 'Đã gửi yêu cầu cấp Giấy xác nhận thực tập! HR sẽ kiểm tra và xử lý sớm.', data: updated });
+        } catch (err) { next(err); }
+    },
+
+    // PUT /api/intern/internship/student-info
+    async updateStudentInfo(req, res, next) {
+        try {
+            const intern = await InternModel.findByUserId(req.user.id);
+            if (!intern) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ thực tập.' });
+
+            const {
+                custom_intern_name,
+                student_dob,
+                student_gender,
+                student_phone,
+                student_address,
+                school_name,
+                faculty_name,
+                student_code,
+                university_class,
+                major_name,
+                academic_year
+            } = req.body;
+
+            await InternModel.updateStudentInfo(intern.id, {
+                custom_intern_name: custom_intern_name !== undefined ? custom_intern_name : intern.custom_intern_name,
+                student_dob: student_dob !== undefined ? student_dob : intern.student_dob,
+                student_gender: student_gender !== undefined ? student_gender : intern.student_gender,
+                student_phone: student_phone !== undefined ? student_phone : intern.student_phone,
+                student_address: student_address !== undefined ? student_address : intern.student_address,
+                school_name: school_name !== undefined ? school_name : intern.school_name,
+                faculty_name: faculty_name !== undefined ? faculty_name : intern.faculty_name,
+                student_code: student_code !== undefined ? student_code : intern.student_code,
+                university_class: university_class !== undefined ? university_class : intern.university_class,
+                major_name: major_name !== undefined ? major_name : intern.major_name,
+                academic_year: academic_year !== undefined ? academic_year : intern.academic_year
+            });
+
+            const updated = await InternModel.findByUserId(req.user.id);
+            return res.status(200).json({
+                success: true,
+                message: 'Đã lưu thông tin cá nhân và trường lớp thành công!',
+                data: updated
+            });
+        } catch (err) { next(err); }
+    },
+
+    // GET /api/intern/internship/certificate
+    async getMyCertificate(req, res, next) {
+        try {
+            const intern = await InternModel.findByUserId(req.user.id);
+            if (!intern) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ thực tập.' });
+            return res.status(200).json({ success: true, data: intern });
+        } catch (err) { next(err); }
+    },
+
+    // POST /api/intern/internship/deal-meeting/propose
+    async proposeDealMeeting(req, res, next) {
+        try {
+            const intern = await InternModel.findByUserId(req.user.id);
+            if (!intern) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ thực tập.' });
+
+            const canPropose = ['OFFERED', 'HIRED'].includes(intern.hiring_decision) ||
+                (intern.deal_meeting_status && !['NONE', 'CANCELLED'].includes(intern.deal_meeting_status));
+            if (!canPropose || intern.hr_result === 'FAILED' || intern.status === 'FAILED' || ['NOT_OFFERED', 'REJECTED', 'DECLINED'].includes(intern.hiring_decision)) {
+                return res.status(400).json({ success: false, message: 'Bạn chưa nhận được đề xuất tuyển dụng chính thức từ phòng Nhân sự để đặt lịch Deal Job.' });
+            }
+
+            const { deal_meeting_time, deal_meeting_type = 'OFFLINE', deal_meeting_location, deal_meeting_note } = req.body;
+            if (!deal_meeting_time) {
+                return res.status(400).json({ success: false, message: 'Vui lòng chọn thời gian mong muốn trao đổi.' });
+            }
+
+            await InternModel.updateDealMeeting(intern.id, {
+                deal_meeting_status: 'PENDING_HR',
+                deal_meeting_time,
+                deal_meeting_type,
+                deal_meeting_location: deal_meeting_location || (deal_meeting_type === 'ONLINE' ? 'Google Meet' : 'Văn phòng công ty'),
+                deal_meeting_note,
+                updated_by: req.user.id
+            });
+
+            const updated = await InternModel.findByUserId(req.user.id);
+
+            // Notify HRs
+            try {
+                const NotificationService = require('../services/notificationService');
+                const timeFormatted = new Date(deal_meeting_time).toLocaleString('vi-VN');
+                await NotificationService.notifyHRs({
+                    branchId: intern.branch_id,
+                    senderId: req.user.id,
+                    title: 'Thực tập sinh đề xuất lịch hẹn Deal Job 🤝',
+                    message: `Thực tập sinh "${intern.intern_name}" đề xuất lịch hẹn trao đổi tuyển dụng chính thức vào lúc ${timeFormatted} (${deal_meeting_type === 'ONLINE' ? 'Online' : 'Trực tiếp'}). Vui lòng xem xét và xác nhận!`,
+                    type: 'INTERNSHIP',
+                    link: '/hr/interns'
+                });
+            } catch (notifyErr) {
+                console.error('Notification error in proposeDealMeeting:', notifyErr.message);
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đã gửi đề xuất lịch hẹn trao đổi Deal Job tới phòng Nhân sự!',
+                data: updated
+            });
+        } catch (err) { next(err); }
+    },
+
+    // POST /api/intern/internship/deal-meeting/confirm
+    async confirmDealMeeting(req, res, next) {
+        try {
+            const intern = await InternModel.findByUserId(req.user.id);
+            if (!intern) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ thực tập.' });
+
+            const { note } = req.body;
+            await InternModel.confirmDealMeeting(intern.id, {
+                updated_by: req.user.id,
+                note
+            });
+
+            const updated = await InternModel.findByUserId(req.user.id);
+
+            // Notify HRs
+            try {
+                const NotificationService = require('../services/notificationService');
+                const timeFormatted = updated.deal_meeting_time ? new Date(updated.deal_meeting_time).toLocaleString('vi-VN') : 'đã chốt';
+                await NotificationService.notifyHRs({
+                    branchId: intern.branch_id,
+                    senderId: req.user.id,
+                    title: 'Thực tập sinh đã xác nhận lịch hẹn Deal Job ✅',
+                    message: `Thực tập sinh "${intern.intern_name}" đã đồng ý và xác nhận lịch hẹn trao đổi Deal Job vào lúc ${timeFormatted} tại ${updated.deal_meeting_location || 'Văn phòng'}.`,
+                    type: 'INTERNSHIP',
+                    link: '/hr/interns'
+                });
+            } catch (notifyErr) {
+                console.error('Notification error in confirmDealMeeting:', notifyErr.message);
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Bạn đã xác nhận đồng ý lịch hẹn trao đổi Deal Job!',
+                data: updated
+            });
+        } catch (err) { next(err); }
+    },
+
+    // POST /api/intern/internship/decline-offer
+    async declineHiringOffer(req, res, next) {
+        try {
+            const intern = await InternModel.findByUserId(req.user.id);
+            if (!intern) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ thực tập.' });
+
+            const { reason } = req.body;
+            await InternModel.declineHiringOffer(intern.id, { reason });
+
+            const updated = await InternModel.findByUserId(req.user.id);
+
+            // Notify HRs
+            try {
+                const NotificationService = require('../services/notificationService');
+                await NotificationService.notifyHRs({
+                    branchId: intern.branch_id,
+                    senderId: req.user.id,
+                    title: 'TTS từ chối lời mời tuyển dụng chính thức ❌',
+                    message: `Thực tập sinh "${intern.intern_name}" đã từ chối nhận lời mời tuyển dụng chính thức.${reason ? ' Lý do: ' + reason : ''}`,
+                    type: 'INTERNSHIP',
+                    link: '/hr/interns'
+                });
+            } catch (notifyErr) {
+                console.error('Notification error in declineHiringOffer:', notifyErr.message);
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đã ghi nhận phản hồi từ chối đề xuất tuyển dụng chính thức của bạn.',
+                data: updated
+            });
+        } catch (err) { next(err); }
     }
 };
 

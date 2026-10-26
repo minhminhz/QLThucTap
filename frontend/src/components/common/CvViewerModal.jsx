@@ -66,9 +66,8 @@ export default function CvViewerModal({ isOpen, onClose, cv }) {
           <div className="modal-header bg-light border-bottom px-4 py-3 flex-shrink-0 d-flex align-items-center justify-content-between">
             <div className="d-flex align-items-center gap-3 overflow-hidden">
               <div
-                className={`rounded-3 p-2 d-flex align-items-center justify-content-center text-white ${
-                  isPdf ? 'bg-danger' : isWord ? 'bg-primary' : 'bg-secondary'
-                }`}
+                className={`rounded-3 p-2 d-flex align-items-center justify-content-center text-white ${isPdf ? 'bg-danger' : isWord ? 'bg-primary' : 'bg-secondary'
+                  }`}
                 style={{ width: '42px', height: '42px' }}
               >
                 <i className={`bi ${isPdf ? 'bi-file-earmark-pdf-fill' : isWord ? 'bi-file-earmark-word-fill' : 'bi-file-earmark-text-fill'} fs-4`}></i>

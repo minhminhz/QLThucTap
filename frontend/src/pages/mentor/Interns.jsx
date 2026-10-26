@@ -19,7 +19,7 @@ export default function MentorInterns() {
   // Modals
   const [viewingCv, setViewingCv] = useState(null);
   const [evaluatingIntern, setEvaluatingIntern] = useState(null);
-  const [evalData, setEvalData] = useState({ final_review: '', rating: '9' });
+  const [evalData, setEvalData] = useState({ final_review: '', rating: '9', mentor_recommendation: 'PASS', mentor_offer_recommendation: false });
   const [quickTaskIntern, setQuickTaskIntern] = useState(null);
   const [quickTaskForm, setQuickTaskForm] = useState({ title: '', description: '', deadline: '' });
 
@@ -46,10 +46,13 @@ export default function MentorInterns() {
     e.preventDefault();
     if (!evaluatingIntern) return;
     try {
-      await api.patch(`/mentor/interns/${evaluatingIntern.id}/final-review`, evalData);
+      await api.patch(`/mentor/interns/${evaluatingIntern.id}/final-review`, {
+        ...evalData,
+        mentor_offer_recommendation: evalData.mentor_offer_recommendation ? 1 : 0
+      });
       await fetchData();
       setEvaluatingIntern(null);
-      setEvalData({ final_review: '', rating: '9' });
+      setEvalData({ final_review: '', rating: '9', mentor_recommendation: 'PASS', mentor_offer_recommendation: false });
     } catch (err) {
       alert(err.response?.data?.message || 'Có lỗi xảy ra khi lưu đánh giá.');
     }
@@ -484,9 +487,61 @@ export default function MentorInterns() {
                         value={evalData.final_review}
                         onChange={(e) => setEvalData({ ...evalData, final_review: e.target.value })}
                         required
-                        placeholder="Đánh giá chi tiết về:&#10;1. Thái độ học hỏi, tinh thần kỷ luật và tuân thủ quy trình.&#10;2. Khả năng tiếp thu kiến thức và tư duy giải quyết vấn đề.&#10;3. Chất lượng mã nguồn/sản phẩm đầu ra và sự chủ động trong dự án.&#10;4. Đề xuất giữ lại làm nhân viên chính thức hoặc hướng phát triển tiếp theo..."
+                        placeholder="Đánh giá chi tiết về:&#10;1. Thái độ học hỏi, tinh thần kỷ luật và tuân thủ quy trình.&#10;2. Khả năng tiếp thu kiến thức và tư duy giải quyết vấn đề.&#10;3. Chất lượng mã nguồn/sản phẩm đầu ra và sự chủ động trong dự án."
                         className="form-control"
                       />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label small fw-semibold">Kết quả đề xuất <span className="text-danger">*</span></label>
+                      <div className="d-flex gap-3">
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="radio"
+                            id="rec_pass"
+                            name="mentor_recommendation"
+                            value="PASS"
+                            checked={evalData.mentor_recommendation === 'PASS'}
+                            onChange={(e) => setEvalData({ ...evalData, mentor_recommendation: e.target.value })}
+                          />
+                          <label className="form-check-label text-success fw-semibold" htmlFor="rec_pass">
+                            <i className="bi bi-check-circle-fill me-1" />Đạt yêu cầu
+                          </label>
+                        </div>
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="radio"
+                            id="rec_fail"
+                            name="mentor_recommendation"
+                            value="FAIL"
+                            checked={evalData.mentor_recommendation === 'FAIL'}
+                            onChange={(e) => setEvalData({ ...evalData, mentor_recommendation: e.target.value })}
+                          />
+                          <label className="form-check-label text-danger fw-semibold" htmlFor="rec_fail">
+                            <i className="bi bi-x-circle-fill me-1" />Không đạt
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="form-check form-switch mb-2">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="offer_recommend"
+                        checked={evalData.mentor_offer_recommendation}
+                        onChange={(e) => setEvalData({ ...evalData, mentor_offer_recommendation: e.target.checked })}
+                      />
+                      <label className="form-check-label small" htmlFor="offer_recommend">
+                        <i className="bi bi-star-fill text-warning me-1" />
+                        Đề xuất tuyển dụng chính thức (nếu TTS đủ tiêu chuẩn)
+                      </label>
+                    </div>
+                    <div className="alert alert-info py-2 px-3 small mb-0">
+                      <i className="bi bi-info-circle me-1" />
+                      Sau khi Mentor hoàn thành đánh giá, HR sẽ tổng hợp kết quả và xác nhận hoàn thành kỳ thực tập.
                     </div>
                   </div>
                   <div className="modal-footer bg-light py-2">

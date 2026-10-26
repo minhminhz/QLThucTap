@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const pool = require('../config/db');
 const UserModel = require('../models/userModel');
 
 const generateToken = (user) => {
@@ -108,6 +109,21 @@ const AuthController = {
                 });
             }
 
+            // Ensure intern role consistency: if user has an internship record, they stay INTERN
+            if (user.role === 'APPLICANT') {
+                const [internCheck] = await pool.query(
+                    'SELECT id, branch_id FROM interns WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+                    [user.id]
+                );
+                if (internCheck.length > 0) {
+                    await pool.query('UPDATE users SET role = \'INTERN\', branch_id = COALESCE(branch_id, ?) WHERE id = ?', [internCheck[0].branch_id, user.id]);
+                    user.role = 'INTERN';
+                    if (!user.branch_id && internCheck[0].branch_id) {
+                        user.branch_id = internCheck[0].branch_id;
+                    }
+                }
+            }
+
             const token = generateToken(user);
             const safeUser = await UserModel.findById(user.id);
 
@@ -127,7 +143,17 @@ const AuthController = {
     // GET /api/auth/me
     async getMe(req, res, next) {
         try {
-            const user = await UserModel.findById(req.user.id);
+            let user = await UserModel.findById(req.user.id);
+            if (user && user.role === 'APPLICANT') {
+                const [internCheck] = await pool.query(
+                    'SELECT id, branch_id FROM interns WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+                    [user.id]
+                );
+                if (internCheck.length > 0) {
+                    await pool.query('UPDATE users SET role = \'INTERN\', branch_id = COALESCE(branch_id, ?) WHERE id = ?', [internCheck[0].branch_id, user.id]);
+                    user = await UserModel.findById(user.id);
+                }
+            }
             return res.status(200).json({
                 success: true,
                 data: user

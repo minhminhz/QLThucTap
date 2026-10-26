@@ -26,7 +26,16 @@ export function AuthProvider({ children }) {
 
     if (token && savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+        // Sync fresh profile from server in background to keep role/status up to date
+        api.get('/auth/me').then((res) => {
+          if (res.data?.data) {
+            const fresh = res.data.data;
+            sessionStorage.setItem('user', JSON.stringify(fresh));
+            setUser(fresh);
+          }
+        }).catch(() => {});
       } catch {
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('token');

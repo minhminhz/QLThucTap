@@ -30,6 +30,21 @@ router.put('/interns/:id/mentor', HrController.assignMentor);
 router.patch('/interns/:id/assign-mentor', HrController.assignMentorWithDates);
 router.put('/interns/:id/status', HrController.updateInternStatus);
 router.patch('/interns/:id/status', HrController.updateInternStatus);
+router.post('/interns/:id/confirm-completion', HrController.confirmInternCompletion);
+router.patch('/interns/:id/hiring', HrController.updateHiringDecision);
+router.get('/interns/:id/certificate', HrController.getInternCertificate);
+
+// Certificate & Evaluation management
+router.get('/certificates', HrController.getCertificateRequests);
+router.post('/interns/:id/approve-certificate', HrController.approveCertificateRequest);
+router.post('/interns/:id/reject-certificate', HrController.rejectCertificateRequest);
+router.post('/interns/:id/issue-certificate', HrController.issueDirectCertificate);
+router.put('/interns/:id/student-info', HrController.updateStudentInfo);
+
+// Deal meeting management
+router.post('/interns/:id/deal-meeting/propose', HrController.proposeDealMeeting);
+router.post('/interns/:id/deal-meeting/confirm', HrController.confirmDealMeeting);
+router.post('/interns/:id/deal-meeting/complete', HrController.completeDealMeeting);
 
 // Mentor management within branch
 router.get('/mentors', HrController.getMentors);

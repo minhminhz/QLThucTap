@@ -46,6 +46,21 @@ const verifyToken = async (req, res, next) => {
             });
         }
 
+        // Ensure user who has an internship never loses INTERN role
+        if (user.role === 'APPLICANT') {
+            const [internCheck] = await pool.query(
+                'SELECT id, branch_id FROM interns WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+                [user.id]
+            );
+            if (internCheck.length > 0) {
+                await pool.query('UPDATE users SET role = \'INTERN\', branch_id = COALESCE(branch_id, ?) WHERE id = ?', [internCheck[0].branch_id, user.id]);
+                user.role = 'INTERN';
+                if (!user.branch_id && internCheck[0].branch_id) {
+                    user.branch_id = internCheck[0].branch_id;
+                }
+            }
+        }
+
         req.user = user;
         next();
     } catch (err) {

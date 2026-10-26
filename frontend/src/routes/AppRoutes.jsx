@@ -49,21 +49,21 @@ export default function AppRoutes() {
       <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
       <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
 
-      {/* ===== APPLICANT ===== */}
+      {/* ===== APPLICANT & INTERN ===== */}
       <Route path="/dashboard" element={
-        <RoleRoute roles={['APPLICANT']}>
+        <RoleRoute roles={['APPLICANT', 'INTERN']}>
           <ApplicantDashboard />
         </RoleRoute>
       } />
 
       {/* ===== INTERN ===== */}
       <Route path="/intern" element={
-        <RoleRoute roles={['INTERN']}>
+        <RoleRoute roles={['INTERN', 'APPLICANT']}>
           <InternDashboard />
         </RoleRoute>
       } />
       <Route path="/intern/tasks" element={
-        <RoleRoute roles={['INTERN']}>
+        <RoleRoute roles={['INTERN', 'APPLICANT']}>
           <InternDashboard />
         </RoleRoute>
       } />

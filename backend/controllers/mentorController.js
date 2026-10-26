@@ -96,17 +96,45 @@ const MentorController = {
     // PATCH /api/mentor/interns/:id/final-review
     async submitFinalReview(req, res, next) {
         try {
-            const { final_review, rating } = req.body;
+            const {
+                final_review, rating, mentor_recommendation = 'PASS', mentor_offer_recommendation = false,
+                score_discipline, score_competence, score_skills,
+                evaluation_advantages, evaluation_limitations,
+                school_name, student_code, university_class, major_name, academic_year
+            } = req.body;
             if (!final_review) return res.status(400).json({ success: false, message: 'Vui lòng nhập nhận xét tổng kết.' });
             const intern = await InternModel.findById(req.params.id);
             if (!intern) return res.status(404).json({ success: false, message: 'Không tìm thấy thực tập sinh.' });
             if (intern.mentor_id !== req.user.id && req.user.role !== 'ADMIN') {
                 return res.status(403).json({ success: false, message: 'Chỉ Mentor phụ trách mới có thể đánh giá.' });
             }
-            await pool.query(
-                `UPDATE interns SET final_review = ?, rating = ?, status = 'COMPLETED' WHERE id = ?`,
-                [final_review, rating || null, intern.id]
-            );
+
+            // Calculate rating if criteria are provided
+            let finalRating = rating !== undefined && rating !== null && rating !== '' ? parseFloat(rating) : null;
+            if (score_discipline !== undefined && score_competence !== undefined && score_skills !== undefined) {
+                const totalScore = (parseFloat(score_discipline) || 0) + (parseFloat(score_competence) || 0) + (parseFloat(score_skills) || 0);
+                if (totalScore > 0) {
+                    finalRating = Math.round(totalScore * 10) / 10;
+                }
+            }
+
+            await InternModel.submitMentorEvaluation(intern.id, {
+                rating: finalRating,
+                final_review,
+                mentor_recommendation: mentor_recommendation || 'PASS',
+                mentor_offer_recommendation: mentor_offer_recommendation ? 1 : 0,
+                score_discipline: score_discipline ? parseFloat(score_discipline) : null,
+                score_competence: score_competence ? parseFloat(score_competence) : null,
+                score_skills: score_skills ? parseFloat(score_skills) : null,
+                evaluation_advantages: evaluation_advantages || null,
+                evaluation_limitations: evaluation_limitations || null,
+                school_name: school_name || null,
+                student_code: student_code || null,
+                university_class: university_class || null,
+                major_name: major_name || null,
+                academic_year: academic_year || null
+            });
+
             const updated = await InternModel.findById(intern.id);
 
             // Dispatch notifications to Intern and HR
@@ -117,8 +145,8 @@ const MentorController = {
                     await NotificationService.notifyUser({
                         userId: intern.user_id,
                         senderId: req.user.id,
-                        title: 'Đánh giá tổng kết kỳ thực tập 🏆',
-                        message: `Mentor "${req.user.full_name}" đã hoàn tất đánh giá tổng kết kỳ thực tập của bạn: ${rating ? rating + ' ⭐ - ' : ''}"${final_review}". Chúc mừng bạn đã hoàn thành kỳ thực tập!`,
+                        title: 'Đánh giá cuối kỳ từ Mentor 🏆',
+                        message: `Mentor "${req.user.full_name}" đã hoàn thành đánh giá cuối kỳ: ${rating ? rating + '/10 điểm - ' : ''}"${final_review}". Kết quả đang được gửi tới phòng Nhân sự (HR) để tổng hợp và xác nhận hoàn thành!`,
                         type: 'INTERNSHIP',
                         link: '/intern'
                     });
@@ -128,8 +156,8 @@ const MentorController = {
                 await NotificationService.notifyHRs({
                     branchId: intern.branch_id,
                     senderId: req.user.id,
-                    title: 'Đánh giá tổng kết TTS hoàn tất 🎓',
-                    message: `Mentor "${req.user.full_name}" vừa hoàn tất đánh giá tổng kết cho TTS "${intern.full_name}" (Vị trí: ${intern.position_title || 'Thực tập sinh'}, ${rating ? rating + ' ⭐' : ''}).`,
+                    title: 'Đánh giá cuối kỳ TTS hoàn tất 🎓',
+                    message: `Mentor "${req.user.full_name}" vừa hoàn tất đánh giá cuối kỳ cho TTS "${intern.intern_name}" (Vị trí: ${intern.position_title || 'Thực tập sinh'}, Điểm: ${rating || 'N/A'}/10, Đề xuất: ${mentor_recommendation === 'PASS' ? 'Đạt' : 'Không đạt'}${mentor_offer_recommendation ? ', Có đề xuất tuyển dụng chính thức' : ''}). Vui lòng xác nhận hoàn thành thực tập.`,
                     type: 'INTERNSHIP',
                     link: '/hr/interns'
                 });
@@ -137,7 +165,7 @@ const MentorController = {
                 console.error('Notification error in submitFinalReview:', notifyErr.message);
             }
 
-            return res.status(200).json({ success: true, message: 'Đánh giá tổng kết thành công!', data: updated });
+            return res.status(200).json({ success: true, message: 'Đánh giá cuối kỳ thành công! Kết quả đã được chuyển tới HR.', data: updated });
         } catch (err) { next(err); }
     },
 
