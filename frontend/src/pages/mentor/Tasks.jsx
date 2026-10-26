@@ -8,8 +8,10 @@ import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import EmptyState from '../../components/common/EmptyState';
 import { TaskFileBadge, TaskFileInlineEmbed, formatFileSize } from '../../components/TaskFileViewer';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function MentorTasks() {
+  const { notify, confirm } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialInternId = searchParams.get('intern_id') || 'all';
 
@@ -80,8 +82,9 @@ export default function MentorTasks() {
       setShowCreateModal(false);
       setNewTaskForm({ intern_id: '', title: '', description: '', deadline: '' });
       setNewTaskFile(null);
+      notify.success('Công việc mới đã được tạo và giao cho thực tập sinh thành công.', 'Tạo công việc');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi tạo công việc.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi tạo công việc.', 'Tạo công việc thất bại');
     }
   };
 
@@ -108,18 +111,32 @@ export default function MentorTasks() {
       setEditingTask(null);
       setEditTaskFile(null);
       setRemoveAttachment(false);
+      notify.success('Thông tin công việc đã được cập nhật thành công.', 'Cập nhật công việc');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật công việc.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật công việc.', 'Cập nhật thất bại');
     }
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa công việc này không?')) return;
+    const targetTask = tasks.find((t) => t.id === taskId);
+    const taskTitle = targetTask ? `"${targetTask.title}"` : 'này';
+
+    const isConfirmed = await confirm({
+      title: 'Xác nhận xóa công việc',
+      message: `Bạn có chắc chắn muốn xóa công việc ${taskTitle} không? Toàn bộ dữ liệu bài tập và các tệp đính kèm sẽ bị xóa hoàn toàn khỏi hệ thống.`,
+      confirmText: 'Xóa công việc',
+      cancelText: 'Hủy bỏ',
+      variant: 'danger',
+    });
+
+    if (!isConfirmed) return;
+
     try {
       await api.delete(`/mentor/tasks/${taskId}`);
       await fetchTasksAndInterns();
+      notify.success('Công việc đã được xóa thành công khỏi danh sách.', 'Đã xóa công việc');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi xóa công việc.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi xóa công việc.', 'Xóa công việc thất bại');
     }
   };
 
@@ -134,10 +151,12 @@ export default function MentorTasks() {
       await fetchTasksAndInterns();
       setReviewModal(null);
       setFeedback('');
+      notify.success('Đã gửi kết quả đánh giá và nhận xét cho thực tập sinh.', 'Đánh giá hoàn tất');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi đánh giá bài tập.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi đánh giá bài tập.', 'Đánh giá thất bại');
     }
   };
+
 
   // Filter tasks
   const filteredTasks = tasks.filter((task) => {

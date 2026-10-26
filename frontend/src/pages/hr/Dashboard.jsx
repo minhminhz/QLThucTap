@@ -10,8 +10,10 @@ import StatCard from '../../components/common/StatCard';
 import EmptyState from '../../components/common/EmptyState';
 import CvViewerModal from '../../components/common/CvViewerModal';
 import eventBus from '../../services/eventBus';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function HRDashboard() {
+  const { notify } = useNotification();
   const { user } = useAuth();
   const location = useLocation();
 
@@ -141,16 +143,26 @@ export default function HRDashboard() {
         deadline: '',
         internship_duration: '3 tháng',
       });
+      notify.success('Vị trí tuyển dụng mới đã được đăng tuyển thành công!', 'Đăng tuyển vị trí');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi tạo vị trí tuyển dụng.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi tạo vị trí tuyển dụng.', 'Tạo vị trí thất bại');
     }
   };
 
   const handleTogglePosition = async (pos) => {
-    const newStatus = pos.status === 'OPEN' ? 'CLOSED' : 'OPEN';
-    await api.patch(`/hr/positions/${pos.id}/status`, { status: newStatus });
-    await fetchDashboardData(false, selectedBranch);
+    try {
+      const newStatus = pos.status === 'OPEN' ? 'CLOSED' : 'OPEN';
+      await api.patch(`/hr/positions/${pos.id}/status`, { status: newStatus });
+      await fetchDashboardData(false, selectedBranch);
+      notify.success(
+        `Đã ${newStatus === 'OPEN' ? 'mở lại' : 'tạm đóng'} tin tuyển dụng "${pos.title}" thành công.`,
+        'Trạng thái tuyển dụng'
+      );
+    } catch (err) {
+      notify.error(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái vị trí tuyển dụng.', 'Cập nhật thất bại');
+    }
   };
+
 
   if (loading) {
     return (

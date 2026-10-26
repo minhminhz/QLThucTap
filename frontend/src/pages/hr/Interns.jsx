@@ -7,6 +7,7 @@ import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import EmptyState from '../../components/common/EmptyState';
 import CertificateModal from '../../components/common/CertificateModal';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const CERT_STATUS_LABEL = {
   NONE: { label: 'Chưa yêu cầu', cls: 'bg-secondary' },
@@ -41,8 +42,10 @@ const DEAL_MEETING_STATUS_LABEL = {
 };
 
 export default function HRInterns() {
+  const { notify } = useNotification();
   const [interns, setInterns] = useState([]);
   const [mentors, setMentors] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('all');
 
@@ -142,8 +145,9 @@ export default function HRInterns() {
       setConfirmModal(null);
       setHrResult('PASSED');
       setHrReview('');
+      notify.success('Đã xác nhận đánh giá và hoàn thành kỳ thực tập thành công!', 'Xác nhận thực tập');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi xác nhận đánh giá hoàn thành.', 'Xác nhận thất bại');
     } finally {
       setConfirmLoading(false);
     }
@@ -161,8 +165,14 @@ export default function HRInterns() {
       await fetchData();
       setCertModal(null);
       setCertNote('');
+      notify.success(
+        certAction === 'APPROVE'
+          ? 'Đã duyệt yêu cầu cấp chứng nhận thực tập thành công!'
+          : 'Đã từ chối yêu cầu cấp chứng nhận thực tập.',
+        'Xử lý yêu cầu chứng nhận'
+      );
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi xử lý yêu cầu cấp chứng nhận.', 'Xử lý thất bại');
     } finally {
       setCertLoading(false);
     }
@@ -176,9 +186,9 @@ export default function HRInterns() {
       await api.post(`/hr/interns/${directCertModal.id}/issue-certificate`, directCertForm);
       await fetchData();
       setDirectCertModal(null);
-      alert('Đã cấp Giấy xác nhận và Phiếu đánh giá thực tập thành công!');
+      notify.success('Đã cấp Giấy xác nhận và Phiếu đánh giá thực tập thành công!', 'Cấp chứng nhận');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi cấp giấy.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi cấp giấy xác nhận.', 'Cấp giấy thất bại');
     } finally {
       setDirectCertLoading(false);
     }
@@ -196,8 +206,9 @@ export default function HRInterns() {
       await fetchData();
       setHiringModal(null);
       setHiringNote('');
+      notify.success('Đã cập nhật quyết định tuyển dụng thực tập sinh thành công!', 'Quyết định tuyển dụng');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật quyết định tuyển dụng.', 'Cập nhật thất bại');
     } finally {
       setHiringLoading(false);
     }
@@ -211,9 +222,9 @@ export default function HRInterns() {
       await api.post(`/hr/interns/${dealModal.id}/deal-meeting/propose`, dealForm);
       await fetchData();
       setDealModal(null);
-      alert('Đã gửi đề xuất lịch hẹn Deal Job tới Thực tập sinh thành công!');
+      notify.success('Đã gửi đề xuất lịch hẹn Deal Job tới Thực tập sinh thành công!', 'Đề xuất lịch hẹn');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi gửi đề xuất lịch hẹn.', 'Gửi đề xuất thất bại');
     } finally {
       setDealLoading(false);
     }
@@ -226,9 +237,9 @@ export default function HRInterns() {
       await api.post(`/hr/interns/${dealModal.id}/deal-meeting/confirm`, { note: dealForm.deal_meeting_note });
       await fetchData();
       setDealModal(null);
-      alert('Đã chốt và thống nhất lịch hẹn trao đổi Deal Job!');
+      notify.success('Đã chốt và thống nhất lịch hẹn trao đổi Deal Job thành công!', 'Chốt lịch hẹn');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi chốt lịch hẹn.', 'Chốt lịch thất bại');
     } finally {
       setDealLoading(false);
     }
@@ -244,9 +255,9 @@ export default function HRInterns() {
       });
       await fetchData();
       setDealModal(null);
-      alert('Đã hoàn tất trao đổi Deal Job và chuyển trạng thái tuyển dụng thành chính thức!');
+      notify.success('Đã hoàn tất trao đổi Deal Job và chuyển trạng thái tuyển dụng thành nhân viên chính thức!', 'Tuyển dụng chính thức');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi hoàn tất tuyển dụng chính thức.', 'Thao tác thất bại');
     } finally {
       setDealLoading(false);
     }
@@ -279,13 +290,14 @@ export default function HRInterns() {
       if (dealModal && dealModal.id === rejectModal.id) {
         setDealModal(null);
       }
-      alert('Đã cập nhật kết quả: Từ chối tuyển dụng chính thức sau phỏng vấn và gửi thông báo tới Thực tập sinh.');
+      notify.info('Đã cập nhật kết quả: Từ chối tuyển dụng chính thức sau phỏng vấn và gửi thông báo tới Thực tập sinh.', 'Kết quả phỏng vấn');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật kết quả từ chối tuyển dụng.', 'Cập nhật thất bại');
     } finally {
       setRejectSubmitting(false);
     }
   };
+
 
   if (loading) {
     return (

@@ -6,10 +6,12 @@ import Loading from '../../components/Loading';
 import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import EmptyState from '../../components/common/EmptyState';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const EMPTY_FORM = { full_name: '', email: '', password: '', phone: '', department_id: '' };
 
 export default function HRMentors() {
+  const { notify } = useNotification();
   const [mentors, setMentors] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,14 +114,15 @@ export default function HRMentors() {
           // API has already changed the status, update local list and show warning summary
           setStatusModal(null);
           await loadMentors();
-          alert(`✅ Đã chuyển trạng thái. ⚠️ ${res.data.warning}`);
+          notify.warning(res.data.warning, 'Cập nhật trạng thái người hướng dẫn');
         } else {
           setStatusModal(null);
           await loadMentors();
+          notify.success('Đã chuyển trạng thái người hướng dẫn sang ngưng hoạt động.', 'Cập nhật trạng thái');
         }
       } catch (err) {
         setStatusModal(null);
-        alert(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái.');
+        notify.error(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái người hướng dẫn.', 'Cập nhật thất bại');
       }
     } else {
       // Activating - show simple confirm
@@ -135,12 +138,14 @@ export default function HRMentors() {
         status: statusModal.newStatus,
       });
       if (res.data.warning) {
-        alert(`✅ Đã chuyển trạng thái. ⚠️ ${res.data.warning}`);
+        notify.warning(res.data.warning, 'Cập nhật trạng thái người hướng dẫn');
+      } else {
+        notify.success('Đã kích hoạt hoạt động người hướng dẫn thành công.', 'Cập nhật trạng thái');
       }
       setStatusModal(null);
       await loadMentors();
     } catch (err) {
-      alert(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái.');
+      notify.error(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái người hướng dẫn.', 'Cập nhật thất bại');
     } finally {
       setSubmitting(false);
     }
@@ -159,15 +164,17 @@ export default function HRMentors() {
       await api.patch(`/hr/mentors/${resetPwModal.mentor.id}/reset-password`, {
         new_password: newPassword,
       });
-      alert(`✅ Đặt lại mật khẩu cho "${resetPwModal.mentor.full_name}" thành công!`);
+      notify.success(`Đặt lại mật khẩu cho "${resetPwModal.mentor.full_name}" thành công!`, 'Đặt lại mật khẩu');
       setResetPwModal(null);
       setNewPassword('');
     } catch (err) {
       setFormError(err.response?.data?.message || 'Đã xảy ra lỗi, vui lòng thử lại.');
+      notify.error(err.response?.data?.message || 'Đã xảy ra lỗi khi đặt lại mật khẩu.', 'Đặt lại mật khẩu thất bại');
     } finally {
       setSubmitting(false);
     }
   };
+
 
   if (loading) {
     return (

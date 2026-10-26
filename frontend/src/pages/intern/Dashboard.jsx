@@ -7,6 +7,7 @@ import Loading from '../../components/Loading';
 import PageHeader from '../../components/common/PageHeader';
 import { TaskFileBadge, formatFileSize } from '../../components/TaskFileViewer';
 import CertificateModal from '../../components/common/CertificateModal';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const DEAL_MEETING_STATUS_LABEL = {
   NONE: { label: 'Chưa đặt lịch', cls: 'bg-secondary' },
@@ -18,9 +19,11 @@ const DEAL_MEETING_STATUS_LABEL = {
 };
 
 export default function InternDashboard() {
+  const { notify } = useNotification();
   const [internship, setInternship] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+
 
   // Submit task modal
   const [submitModal, setSubmitModal] = useState(null);
@@ -163,7 +166,7 @@ export default function InternDashboard() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!submitContent.trim() && !selectedFile && !submitModal?.submission_file_url) {
-      alert('Vui lòng nhập mô tả kết quả hoặc đính kèm tệp kết quả (PDF, Word, Ảnh, Zip)!');
+      notify.warning('Vui lòng nhập mô tả kết quả hoặc đính kèm tệp kết quả (PDF, Word, Ảnh, Zip)!', 'Thiếu dữ liệu nộp bài');
       return;
     }
 
@@ -189,8 +192,9 @@ export default function InternDashboard() {
       setSubmitModal(null);
       setSubmitContent('');
       setSelectedFile(null);
+      notify.success('Nộp bài tập thành công! Mentor phụ trách sẽ sớm kiểm tra và phản hồi kết quả cho bạn.', 'Nộp bài hoàn tất');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi nộp bài.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi nộp bài tập.', 'Nộp bài thất bại');
     } finally {
       setSubmitting(false);
     }
@@ -204,9 +208,9 @@ export default function InternDashboard() {
       const res = await api.post('/intern/internship/request-certificate', certForm);
       setInternship(res.data.data);
       setCertModal(false);
-      alert('Gửi yêu cầu thành công! HR sẽ kiểm tra thông tin và cấp Giấy xác nhận & Phiếu đánh giá sớm cho bạn.');
+      notify.success('Gửi yêu cầu thành công! Phòng Nhân sự sẽ kiểm tra thông tin và cấp Giấy xác nhận & Phiếu đánh giá thực tập cho bạn.', 'Yêu cầu cấp chứng nhận');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi gửi yêu cầu cấp chứng nhận.', 'Yêu cầu thất bại');
     } finally {
       setCertSubmitting(false);
     }
@@ -220,9 +224,9 @@ export default function InternDashboard() {
       const res = await api.post('/intern/internship/deal-meeting/propose', dealForm);
       setInternship(res.data.data);
       setDealModal(false);
-      alert('Đã gửi đề xuất lịch hẹn trao đổi Deal Job tới phòng Nhân sự!');
+      notify.success('Đã gửi đề xuất lịch hẹn trao đổi Deal Job tới phòng Nhân sự thành công!', 'Đề xuất lịch hẹn');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi gửi đề xuất lịch hẹn.', 'Gửi đề xuất thất bại');
     } finally {
       setDealSubmitting(false);
     }
@@ -236,9 +240,9 @@ export default function InternDashboard() {
         note: 'Thực tập sinh đã xác nhận đồng ý lịch hẹn.'
       });
       setInternship(res.data.data);
-      alert('Bạn đã xác nhận đồng ý lịch hẹn trao đổi Deal Job! Hãy chuẩn bị và tham gia đúng giờ nhé.');
+      notify.success('Bạn đã xác nhận đồng ý lịch hẹn trao đổi Deal Job! Hãy chuẩn bị và tham gia đúng giờ nhé.', 'Xác nhận lịch hẹn');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi xác nhận lịch hẹn.', 'Xác nhận thất bại');
     } finally {
       setDealSubmitting(false);
     }
@@ -268,14 +272,15 @@ export default function InternDashboard() {
       const res = await api.post('/intern/internship/decline-offer', { reason: finalReason });
       setInternship(res.data.data);
       setDeclineModal(false);
-      alert('Đã gửi phản hồi từ chối đề xuất tuyển dụng chính thức tới phòng Nhân sự.');
+      notify.info('Đã gửi phản hồi từ chối đề xuất tuyển dụng chính thức tới phòng Nhân sự.', 'Phản hồi tuyển dụng');
       await fetchDashboardData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi gửi phản hồi.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi gửi phản hồi.', 'Phản hồi thất bại');
     } finally {
       setDeclineSubmitting(false);
     }
   };
+
 
   if (loading) {
     return (

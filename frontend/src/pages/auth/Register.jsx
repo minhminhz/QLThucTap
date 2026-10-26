@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import PublicLayout from '../../layouts/PublicLayout';
 
 export default function Register() {
   const { register } = useAuth();
+  const { notify } = useNotification();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     full_name: '',
@@ -42,8 +44,9 @@ export default function Register() {
   };
 
   const handleGoogleRegister = () => {
-    alert('Tính năng đăng ký Google đang được phát triển.');
+    notify.info('Tính năng đăng ký nhanh bằng tài khoản Google đang được hoàn thiện và sẽ sớm khả dụng.', 'Đang phát triển');
   };
+
 
   return (
     <PublicLayout>

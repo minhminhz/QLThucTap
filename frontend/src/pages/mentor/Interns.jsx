@@ -8,8 +8,10 @@ import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import EmptyState from '../../components/common/EmptyState';
 import CvViewerModal from '../../components/common/CvViewerModal';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function MentorInterns() {
+  const { notify } = useNotification();
   const navigate = useNavigate();
 
   const [interns, setInterns] = useState([]);
@@ -53,8 +55,9 @@ export default function MentorInterns() {
       await fetchData();
       setEvaluatingIntern(null);
       setEvalData({ final_review: '', rating: '9', mentor_recommendation: 'PASS', mentor_offer_recommendation: false });
+      notify.success('Đã lưu kết quả đánh giá thực tập sinh thành công.', 'Đánh giá thực tập');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi lưu đánh giá.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi lưu đánh giá.', 'Đánh giá thất bại');
     }
   };
 
@@ -71,11 +74,12 @@ export default function MentorInterns() {
       await fetchData();
       setQuickTaskIntern(null);
       setQuickTaskForm({ title: '', description: '', deadline: '' });
-      alert(`Đã giao việc thành công cho ${quickTaskIntern.intern_name}!`);
+      notify.success(`Đã giao công việc mới thành công cho ${quickTaskIntern.intern_name}!`, 'Giao việc thành công');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi giao việc.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi giao việc.', 'Giao việc thất bại');
     }
   };
+
 
   if (loading) {
     return (

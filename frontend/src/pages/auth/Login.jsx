@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import PublicLayout from '../../layouts/PublicLayout';
 
 export default function Login() {
   const { login } = useAuth();
+  const { notify } = useNotification();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
@@ -34,8 +36,9 @@ export default function Login() {
   };
 
   const handleGoogleLogin = () => {
-    alert('Tính năng đăng nhập Google đang được phát triển.');
+    notify.info('Tính năng đăng nhập nhanh bằng tài khoản Google đang được hoàn thiện và sẽ sớm khả dụng.', 'Đang phát triển');
   };
+
 
   return (
     <PublicLayout>

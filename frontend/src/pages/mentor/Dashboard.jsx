@@ -9,6 +9,7 @@ import StatCard from '../../components/common/StatCard';
 import EmptyState from '../../components/common/EmptyState';
 import CvViewerModal from '../../components/common/CvViewerModal';
 import { TaskFileInlineEmbed } from '../../components/TaskFileViewer';
+import { useNotification } from '../../contexts/NotificationContext';
 
 // ─── Helper: tính % tiến trình thời gian ────────────────────────────────────
 function calcProgress(startDate, endDate) {
@@ -263,6 +264,7 @@ function BatchCard({ batch, tasks, onViewCv, onAssignTask, onEvaluate }) {
 }
 
 export default function MentorDashboard() {
+  const { notify } = useNotification();
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -311,9 +313,9 @@ export default function MentorDashboard() {
       await fetchDashboardData();
       setNewTaskForm({ intern_id: '', title: '', description: '', deadline: '' });
       setShowTaskForm(false);
-      alert('Đã giao công việc mới thành công!');
+      notify.success('Công việc mới đã được tạo và giao cho thực tập sinh thành công!', 'Giao việc thành công');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi tạo công việc.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi tạo công việc.', 'Giao việc thất bại');
     }
   };
 
@@ -328,8 +330,9 @@ export default function MentorDashboard() {
       await fetchDashboardData();
       setReviewModal(null);
       setFeedback('');
+      notify.success('Đã gửi đánh giá và nhận xét bài tập thành công!', 'Đánh giá hoàn tất');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi đánh giá bài tập.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi đánh giá bài tập.', 'Đánh giá thất bại');
     }
   };
 

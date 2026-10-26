@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const SCORE_TEXT = {
   10: 'Mười điểm',
@@ -33,6 +34,7 @@ function getRatingRank(score) {
 
 export default function CertificateModal({ internship: initialInternship, onClose, onUpdate }) {
   const { user } = useAuth();
+  const { notify } = useNotification();
   const [internship, setInternship] = useState(initialInternship);
   const [activeDoc, setActiveDoc] = useState('CERTIFICATE'); // 'CERTIFICATE' | 'EVALUATION'
   const [isEditingStudent, setIsEditingStudent] = useState(false);
@@ -101,12 +103,14 @@ export default function CertificateModal({ internship: initialInternship, onClos
       }
 
       setTimeout(() => setSaveSuccessMsg(''), 4000);
+      notify.success('Đã lưu thông tin sinh viên và trường lớp thành công!', 'Lưu thông tin hồ sơ');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi lưu thông tin sinh viên.');
+      notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi lưu thông tin sinh viên.', 'Lưu hồ sơ thất bại');
     } finally {
       setSavingStudent(false);
     }
   };
+
 
   const handlePrint = (targetRef, title) => {
     const printContent = targetRef.current;

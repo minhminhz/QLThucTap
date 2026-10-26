@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import eventBus from '../services/eventBus';
+import { useNotification } from '../contexts/NotificationContext';
 
 export default function NotificationBell({ variant = 'dashboard' }) {
+  const { notify, confirm } = useNotification();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -536,12 +538,21 @@ export default function NotificationBell({ variant = 'dashboard' }) {
               <button
                 type="button"
                 onClick={async () => {
+                  const isConfirmed = await confirm({
+                    title: 'Xóa toàn bộ thông báo',
+                    message: 'Bạn có chắc chắn muốn xóa toàn bộ danh sách thông báo không? Thao tác này không thể hoàn tác.',
+                    confirmText: 'Xóa tất cả',
+                    cancelText: 'Hủy bỏ',
+                    variant: 'danger',
+                  });
+                  if (!isConfirmed) return;
                   try {
                     await api.delete('/notifications');
                     setNotifications([]);
                     setUnreadCount(0);
+                    notify.success('Đã dọn sạch toàn bộ thông báo thành công.', 'Xóa thông báo');
                   } catch (err) {
-                    console.error('Failed to clear notifications:', err);
+                    notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi dọn sạch thông báo.', 'Lỗi hệ thống');
                   }
                 }}
                 className="btn btn-link btn-sm text-danger text-decoration-none p-0"
@@ -549,6 +560,7 @@ export default function NotificationBell({ variant = 'dashboard' }) {
                 Xóa tất cả
               </button>
             </div>
+
           )}
         </div>
       )}
