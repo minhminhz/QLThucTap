@@ -16,6 +16,8 @@ const generateToken = (user) => {
     );
 };
 
+const otpStore = new Map();
+
 const AuthController = {
     // POST /api/auth/register (Guest -> Applicant)
     async register(req, res, next) {
@@ -82,21 +84,25 @@ const AuthController = {
             if (!email || !password) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Vui lòng nhập Email và Mật khẩu.'
+                    field: !email ? 'email' : 'password',
+                    message: !email ? 'Vui lòng nhập địa chỉ Email.' : 'Vui lòng nhập Mật khẩu.'
                 });
             }
 
-            const user = await UserModel.findByEmail(email.trim().toLowerCase());
+            const cleanEmail = email.trim().toLowerCase();
+            const user = await UserModel.findByEmail(cleanEmail);
             if (!user) {
                 return res.status(401).json({
                     success: false,
-                    message: 'Email hoặc mật khẩu không chính xác.'
+                    field: 'email',
+                    message: 'Tài khoản (Email) không tồn tại trên hệ thống.'
                 });
             }
 
             if (user.status !== 'ACTIVE') {
                 return res.status(403).json({
                     success: false,
+                    field: 'email',
                     message: 'Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động.'
                 });
             }
@@ -105,7 +111,8 @@ const AuthController = {
             if (!isMatch) {
                 return res.status(401).json({
                     success: false,
-                    message: 'Email hoặc mật khẩu không chính xác.'
+                    field: 'password',
+                    message: 'Mật khẩu không chính xác.'
                 });
             }
 
@@ -215,6 +222,126 @@ const AuthController = {
             return res.status(200).json({
                 success: true,
                 message: 'Đổi mật khẩu thành công!'
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    // POST /api/auth/forgot-password
+    async forgotPassword(req, res, next) {
+        try {
+            const { email } = req.body;
+            if (!email || !email.trim()) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'email',
+                    message: 'Vui lòng nhập địa chỉ Email.'
+                });
+            }
+
+            const cleanEmail = email.trim().toLowerCase();
+            const user = await UserModel.findByEmail(cleanEmail);
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    field: 'email',
+                    message: 'Không tìm thấy tài khoản nào gắn với email này.'
+                });
+            }
+
+            if (user.status !== 'ACTIVE') {
+                return res.status(403).json({
+                    success: false,
+                    field: 'email',
+                    message: 'Tài khoản này đã bị khóa hoặc ngừng hoạt động.'
+                });
+            }
+
+            // Generate 6-digit OTP
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            otpStore.set(cleanEmail, {
+                otp,
+                expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+            });
+
+            console.log('\n======================================================');
+            console.log(' [DỊCH VỤ EMAIL HỆ THỐNG - VYMI TECH]');
+            console.log(` Gửi tới: ${cleanEmail}`);
+            console.log(' Tiêu đề: [VYMI Tech] Mã xác thực khôi phục mật khẩu');
+            console.log(` Nội dung: Mã xác thực OTP của bạn là: ${otp}`);
+            console.log(' Thời hạn hiệu lực: 10 phút (Vui lòng không chia sẻ mã này)');
+            console.log('======================================================\n');
+
+            return res.status(200).json({
+                success: true,
+                message: 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.',
+                data: {
+                    email: cleanEmail
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    // POST /api/auth/reset-password
+    async resetPassword(req, res, next) {
+        try {
+            const { email, otp, new_password } = req.body;
+
+            if (!email || !otp || !new_password) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Vui lòng điền đầy đủ Email, Mã OTP và Mật khẩu mới.'
+                });
+            }
+
+            const cleanEmail = email.trim().toLowerCase();
+            const stored = otpStore.get(cleanEmail);
+
+            if (!stored || stored.expiresAt < Date.now()) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'otp',
+                    message: 'Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng lấy mã mới.'
+                });
+            }
+
+            if (stored.otp !== String(otp).trim()) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'otp',
+                    message: 'Mã OTP xác thực không chính xác.'
+                });
+            }
+
+            if (new_password.length < 6) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'new_password',
+                    message: 'Mật khẩu mới phải có ít nhất 6 ký tự.'
+                });
+            }
+
+            const user = await UserModel.findByEmail(cleanEmail);
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Tài khoản người dùng không tồn tại.'
+                });
+            }
+
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(new_password, salt);
+            await UserModel.updatePassword(user.id, hashedPassword);
+
+            // Invalidate OTP after successful reset
+            otpStore.delete(cleanEmail);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đặt lại mật khẩu thành công! Bạn có thể đăng nhập ngay bằng mật khẩu mới.'
             });
         } catch (err) {
             next(err);

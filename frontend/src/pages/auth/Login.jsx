@@ -1,23 +1,55 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import PublicLayout from '../../layouts/PublicLayout';
+import ForgotPasswordModal from '../../components/auth/ForgotPasswordModal';
 
 export default function Login() {
   const { login } = useAuth();
   const { notify } = useNotification();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const passwordInputRef = useRef(null);
 
-  const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    // Clear specific field error as soon as user types
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+    if (error) {
+      setError('');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
+
+    // Pre-validation
+    const newFieldErrors = { email: '', password: '' };
+    if (!form.email.trim()) {
+      newFieldErrors.email = 'Vui lòng nhập địa chỉ Email.';
+    }
+    if (!form.password) {
+      newFieldErrors.password = 'Vui lòng nhập Mật khẩu.';
+    }
+
+    if (newFieldErrors.email || newFieldErrors.password) {
+      setFieldErrors(newFieldErrors);
+      return;
+    }
+
+    setLoading(true);
+    setFieldErrors({ email: '', password: '' });
+
     try {
       const user = await login(form.email, form.password);
       const routes = {
@@ -29,16 +61,34 @@ export default function Login() {
       };
       navigate(routes[user.role] || '/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Email hoặc mật khẩu không đúng.');
+      const resp = err.response?.data;
+      if (resp?.field) {
+        setFieldErrors((prev) => ({ ...prev, [resp.field]: resp.message }));
+      } else {
+        setError(resp?.message || 'Email hoặc mật khẩu không chính xác.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = () => {
-    notify.info('Tính năng đăng nhập nhanh bằng tài khoản Google đang được hoàn thiện và sẽ sớm khả dụng.', 'Đang phát triển');
+    notify.info(
+      'Tính năng đăng nhập nhanh bằng tài khoản Google đang được hoàn thiện và sẽ sớm khả dụng.',
+      'Đang phát triển'
+    );
   };
 
+  const handlePasswordResetSuccess = (resetEmail) => {
+    setForm((prev) => ({ ...prev, email: resetEmail, password: '' }));
+    setFieldErrors({ email: '', password: '' });
+    setError('');
+    setTimeout(() => {
+      if (passwordInputRef.current) {
+        passwordInputRef.current.focus();
+      }
+    }, 200);
+  };
 
   return (
     <PublicLayout>
@@ -58,21 +108,22 @@ export default function Login() {
                 <p className="text-muted small">Chào mừng trở lại hệ thống VYMI Tech</p>
               </div>
 
-              {/* Alert Error */}
+              {/* General Alert Error (for network/server issues) */}
               {error && (
                 <div className="alert alert-danger d-flex align-items-center gap-2 small py-2 px-3 mb-3">
-                  <i className="bi bi-exclamation-triangle-fill"></i>
+                  <i className="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
                   <div>{error}</div>
                 </div>
               )}
 
               {/* Form */}
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} noValidate>
+                {/* Email Field */}
                 <div className="mb-3">
-                  <label className="form-label" htmlFor="email">
+                  <label className="form-label fw-semibold small text-dark" htmlFor="email">
                     Địa chỉ Email
                   </label>
-                  <div className="input-group">
+                  <div className="input-group has-validation">
                     <span className="input-group-text bg-light text-muted">
                       <i className="bi bi-envelope"></i>
                     </span>
@@ -82,40 +133,86 @@ export default function Login() {
                       name="email"
                       value={form.email}
                       onChange={handleChange}
-                      required
                       placeholder="you@example.com"
-                      className="form-control"
+                      className={`form-control ${fieldErrors.email ? 'is-invalid border-danger' : ''}`}
                     />
                   </div>
+                  {fieldErrors.email && (
+                    <div className="text-danger small mt-1 d-flex align-items-center gap-1">
+                      <i className="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+                      <span>{fieldErrors.email}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="mb-4">
+                {/* Password Field */}
+                <div className="mb-3">
                   <div className="d-flex justify-content-between align-items-center mb-1">
-                    <label className="form-label mb-0" htmlFor="password">
+                    <label className="form-label fw-semibold small text-dark mb-0" htmlFor="password">
                       Mật khẩu
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(true)}
+                      className="btn btn-link p-0 small text-decoration-none text-primary fw-semibold"
+                      style={{ fontSize: '0.85rem' }}
+                    >
+                      Quên mật khẩu?
+                    </button>
                   </div>
-                  <div className="input-group">
+                  <div className="input-group has-validation">
                     <span className="input-group-text bg-light text-muted">
                       <i className="bi bi-lock"></i>
                     </span>
                     <input
+                      ref={passwordInputRef}
                       id="password"
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       name="password"
                       value={form.password}
                       onChange={handleChange}
-                      required
                       placeholder="••••••••"
-                      className="form-control"
+                      className={`form-control ${fieldErrors.password ? 'is-invalid border-danger' : ''}`}
                     />
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary border-start-0"
+                      style={{ borderColor: fieldErrors.password ? '#dc3545' : '#ced4da' }}
+                      onClick={() => setShowPassword(!showPassword)}
+                      title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      <i className={`bi bi-${showPassword ? 'eye-slash' : 'eye'}`}></i>
+                    </button>
                   </div>
+                  {fieldErrors.password && (
+                    <div className="text-danger small mt-1 d-flex align-items-center gap-1">
+                      <i className="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+                      <span>{fieldErrors.password}</span>
+                    </div>
+                  )}
+
+                  {/* Prominent Quick Action to Reset Password when wrong password */}
+                  {fieldErrors.password && (
+                    <div className="mt-2 p-2 px-3 bg-danger-subtle rounded border border-danger-subtle d-flex align-items-center justify-content-between">
+                      <span className="small text-danger fw-medium">
+                        <i className="bi bi-key-fill me-1"></i> Bạn quên mật khẩu?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotModal(true)}
+                        className="btn btn-sm btn-outline-danger fw-semibold py-0 px-2"
+                        style={{ fontSize: '0.8rem' }}
+                      >
+                        Lấy lại mật khẩu mới
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn btn-primary w-100 py-2.5 fw-semibold mb-3"
+                  className="btn btn-primary w-100 py-2.5 fw-semibold mb-3 mt-2"
                 >
                   {loading ? (
                     <>
@@ -162,6 +259,14 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+        initialEmail={form.email}
+        onSuccess={handlePasswordResetSuccess}
+      />
     </PublicLayout>
   );
 }
