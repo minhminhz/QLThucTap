@@ -60,6 +60,38 @@ const BranchModel = {
             [status, id]
         );
         return result.affectedRows > 0;
+    },
+
+    async deleteById(id) {
+        // Check for users assigned to this branch
+        const [users] = await pool.query(
+            `SELECT COUNT(*) as count FROM users WHERE branch_id = ?`,
+            [id]
+        );
+        if (users[0].count > 0) {
+            return { success: false, message: `Không thể xóa cơ sở này vì còn ${users[0].count} người dùng đang thuộc cơ sở.` };
+        }
+
+        // Check for internship positions
+        const [positions] = await pool.query(
+            `SELECT COUNT(*) as count FROM internship_positions WHERE branch_id = ?`,
+            [id]
+        );
+        if (positions[0].count > 0) {
+            return { success: false, message: `Không thể xóa cơ sở này vì còn ${positions[0].count} vị trí thực tập đang liên kết.` };
+        }
+
+        // Check for interns
+        const [interns] = await pool.query(
+            `SELECT COUNT(*) as count FROM interns WHERE branch_id = ?`,
+            [id]
+        );
+        if (interns[0].count > 0) {
+            return { success: false, message: `Không thể xóa cơ sở này vì còn ${interns[0].count} thực tập sinh đang thuộc cơ sở.` };
+        }
+
+        const [result] = await pool.query(`DELETE FROM branches WHERE id = ?`, [id]);
+        return { success: result.affectedRows > 0 };
     }
 };
 

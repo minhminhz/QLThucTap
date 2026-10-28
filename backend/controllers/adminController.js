@@ -271,6 +271,14 @@ const AdminController = {
                 });
             }
 
+            const user = await UserModel.findById(req.params.id);
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy tài khoản người dùng này.'
+                });
+            }
+
             await UserModel.updateStatus(req.params.id, status);
 
             return res.status(200).json({
@@ -289,6 +297,80 @@ const AdminController = {
             return res.status(200).json({
                 success: true,
                 data: departments
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    // DELETE /api/admin/branches/:id
+    async deleteBranch(req, res, next) {
+        try {
+            const branch = await BranchModel.findById(req.params.id);
+            if (!branch) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy cơ sở này.'
+                });
+            }
+
+            const result = await BranchModel.deleteById(branch.id);
+            if (!result.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: result.message || 'Không thể xóa cơ sở này.'
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: `Đã xóa cơ sở "${branch.name}" thành công!`
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    // DELETE /api/admin/users/:id
+    async deleteUser(req, res, next) {
+        try {
+            const userId = parseInt(req.params.id, 10);
+
+            // Prevent self-deletion
+            if (userId === req.user.id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Bạn không thể xóa tài khoản của chính mình!'
+                });
+            }
+
+            const user = await UserModel.findById(userId);
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy tài khoản người dùng này.'
+                });
+            }
+
+            // Prevent deleting other ADMIN accounts
+            if (user.role === 'ADMIN') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Không thể xóa tài khoản Admin khác. Vui lòng chỉ khóa tài khoản.'
+                });
+            }
+
+            const result = await UserModel.deleteById(userId);
+            if (!result.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: result.message || 'Không thể xóa tài khoản này.'
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: `Đã xóa tài khoản "${user.full_name}" (${user.email}) thành công!`
             });
         } catch (err) {
             next(err);

@@ -10,61 +10,17 @@ import Pagination from '../../components/common/Pagination';
 import EmptyState from '../../components/common/EmptyState';
 import CvViewerModal from '../../components/common/CvViewerModal';
 import eventBus from '../../services/eventBus';
-
-// ====================================================================
-// DỮ LIỆU MẪU MẶC ĐỊNH (CHUẨN DOANH NGHIỆP VYMI TECH)
-// ====================================================================
-const MOCK_BRANCHES = [
-  { id: 1, name: 'Cơ sở 1 - Hà Nội (Trụ sở chính)', address: 'Số 1 Đại Cồ Việt, Hai Bà Trưng, Hà Nội', status: 'ACTIVE' },
-  { id: 2, name: 'Cơ sở 2 - TP. Hồ Chí Minh', address: 'Landmark 81, Vinhomes Central Park, Bình Thạnh, TP.HCM', status: 'ACTIVE' },
-  { id: 3, name: 'Cơ sở 3 - Đà Nẵng', address: 'Tòa nhà FPT Complex, KCN An Đồn, Đà Nẵng', status: 'ACTIVE' },
-  { id: 4, name: 'Cơ sở 4 - Cần Thơ', address: 'Đại lộ Hòa Bình, Quận Ninh Kiều, Cần Thơ', status: 'ACTIVE' },
-  { id: 5, name: 'Cơ sở 5 - Hải Phòng', address: 'Số 12 Lạch Tray, Quận Ngô Quyền, Hải Phòng', status: 'ACTIVE' },
-  { id: 6, name: 'Cơ sở 6 - Bình Dương', address: 'Tòa nhà Becamex Tower, TP. Thủ Dầu Một, Bình Dương', status: 'INACTIVE' },
-];
-
-const MOCK_USERS = [
-  { id: 101, full_name: 'Trần Thu Hà', email: 'ha.tran@vymitech.vn', phone: '0982 123 456', role: 'HR', branch_id: 1, branch_name: 'Cơ sở 1 - Hà Nội (Trụ sở chính)', status: 'ACTIVE', assigned_interns: 18, assigned_apps: 24, title: 'Trưởng ban Tuyển dụng & Đào tạo' },
-  { id: 102, full_name: 'Phạm Thanh Thảo', email: 'thao.pham@vymitech.vn', phone: '0903 789 012', role: 'HR', branch_id: 2, branch_name: 'Cơ sở 2 - TP. Hồ Chí Minh', status: 'ACTIVE', assigned_interns: 25, assigned_apps: 32, title: 'Chuyên viên Nhân sự cấp cao' },
-  { id: 103, full_name: 'Nguyễn Thị Mai', email: 'mai.nguyen@vymitech.vn', phone: '0914 567 890', role: 'HR', branch_id: 3, branch_name: 'Cơ sở 3 - Đà Nẵng', status: 'ACTIVE', assigned_interns: 14, assigned_apps: 19, title: 'Chuyên viên Nhân sự & Tiếp nhận' },
-  { id: 104, full_name: 'Nguyễn Hữu Tài', email: 'tai.nguyen@vymitech.vn', phone: '0935 234 567', role: 'HR', branch_id: 4, branch_name: 'Cơ sở 4 - Cần Thơ', status: 'ACTIVE', assigned_interns: 10, assigned_apps: 15, title: 'Điều phối viên Thực tập sinh' },
-  { id: 105, full_name: 'Đặng Quang Minh', email: 'minh.dang@vymitech.vn', phone: '0976 345 678', role: 'HR', branch_id: 5, branch_name: 'Cơ sở 5 - Hải Phòng', status: 'ACTIVE', assigned_interns: 8, assigned_apps: 12, title: 'Chuyên viên Quản lý Thực tập' },
-  { id: 106, full_name: 'Vũ Kim Anh', email: 'anh.vu@vymitech.vn', phone: '0968 889 999', role: 'HR', branch_id: 1, branch_name: 'Cơ sở 1 - Hà Nội (Trụ sở chính)', status: 'ACTIVE', assigned_interns: 16, assigned_apps: 21, title: 'Chuyên viên Tuyển dụng Doanh nghiệp' },
-  { id: 107, full_name: 'Lê Bảo Ngọc', email: 'ngoc.le@vymitech.vn', phone: '0942 334 455', role: 'HR', branch_id: 2, branch_name: 'Cơ sở 2 - TP. Hồ Chí Minh', status: 'ACTIVE', assigned_interns: 20, assigned_apps: 28, title: 'Chuyên viên Nhân sự & Đối ngoại' },
-  { id: 108, full_name: 'Lý Quốc Dũng', email: 'dung.ly@vymitech.vn', phone: '0918 999 111', role: 'HR', branch_id: 6, branch_name: 'Cơ sở 6 - Bình Dương', status: 'INACTIVE', assigned_interns: 0, assigned_apps: 0, title: 'Phụ trách Chi nhánh mới' },
-
-  { id: 201, full_name: 'Nguyễn Minh Tuấn', email: 'tuan.nguyen@vymitech.vn', phone: '0901 223 344', role: 'MENTOR', branch_id: 1, branch_name: 'Cơ sở 1 - Hà Nội (Trụ sở chính)', status: 'ACTIVE' },
-  { id: 202, full_name: 'Hoàng Văn Bách', email: 'bach.hoang@vymitech.vn', phone: '0902 334 455', role: 'MENTOR', branch_id: 1, branch_name: 'Cơ sở 1 - Hà Nội (Trụ sở chính)', status: 'ACTIVE' },
-  { id: 203, full_name: 'Lê Hoàng Nam', email: 'nam.le@vymitech.vn', phone: '0903 445 566', role: 'INTERN', branch_id: 1, branch_name: 'Cơ sở 1 - Hà Nội (Trụ sở chính)', status: 'ACTIVE' },
-  { id: 204, full_name: 'Đỗ Quốc Bảo', email: 'bao.do@vymitech.vn', phone: '0904 556 677', role: 'MENTOR', branch_id: 2, branch_name: 'Cơ sở 2 - TP. Hồ Chí Minh', status: 'ACTIVE' },
-  { id: 205, full_name: 'Vũ Đức Trọng', email: 'trong.vu@vymitech.vn', phone: '0905 667 788', role: 'INTERN', branch_id: 2, branch_name: 'Cơ sở 2 - TP. Hồ Chí Minh', status: 'ACTIVE' },
-  { id: 206, full_name: 'Trần Văn Hưng', email: 'hung.tran@vymitech.vn', phone: '0906 778 899', role: 'MENTOR', branch_id: 3, branch_name: 'Cơ sở 3 - Đà Nẵng', status: 'ACTIVE' },
-  { id: 207, full_name: 'Hoàng Yến Nhi', email: 'nhi.hoang@vymitech.vn', phone: '0907 889 900', role: 'INTERN', branch_id: 3, branch_name: 'Cơ sở 3 - Đà Nẵng', status: 'ACTIVE' },
-  { id: 208, full_name: 'Lâm Gia Huy', email: 'huy.lam@vymitech.vn', phone: '0908 990 011', role: 'MENTOR', branch_id: 4, branch_name: 'Cơ sở 4 - Cần Thơ', status: 'ACTIVE' },
-  { id: 209, full_name: 'Bùi Anh Tuấn', email: 'tuan.bui@vymitech.vn', phone: '0909 001 122', role: 'INTERN', branch_id: 4, branch_name: 'Cơ sở 4 - Cần Thơ', status: 'ACTIVE' },
-  { id: 210, full_name: 'Trịnh Kim Ngân', email: 'ngan.trinh@vymitech.vn', phone: '0910 112 233', role: 'MENTOR', branch_id: 5, branch_name: 'Cơ sở 5 - Hải Phòng', status: 'ACTIVE' },
-  { id: 211, full_name: 'Cao Bá Đạt', email: 'dat.cao@vymitech.vn', phone: '0911 223 344', role: 'INTERN', branch_id: 5, branch_name: 'Cơ sở 5 - Hải Phòng', status: 'ACTIVE' },
-];
-
-const MOCK_APPLICATIONS = [
-  { id: 1, applicant_name: 'Nguyễn Văn An', applicant_email: 'an.nguyen@gmail.com', applicant_phone: '0912 345 678', position_title: 'Frontend React.js Developer Intern', branch_name: 'Cơ sở 1 - Hà Nội', status: 'PENDING', created_at: new Date(Date.now() - 3600000 * 2).toISOString(), cv_file_path: '/uploads/cv_nguyen_van_an.pdf', cover_letter: 'Em đã xây dựng nhiều dự án với React và muốn học hỏi quy trình Agile thực tế.' },
-  { id: 2, applicant_name: 'Trần Thị Mai Phương', applicant_email: 'phuong.tran@gmail.com', applicant_phone: '0987 654 321', position_title: 'Backend Node.js / Express Intern', branch_name: 'Cơ sở 2 - TP. Hồ Chí Minh', status: 'REVIEWING', created_at: new Date(Date.now() - 86400000).toISOString(), cv_file_path: '/uploads/cv_tran_mai_phuong.pdf', cover_letter: 'Em đã có kinh nghiệm thiết kế RESTful API với MySQL và JWT authentication.' },
-  { id: 3, applicant_name: 'Lê Quốc Huy', applicant_email: 'huy.le@outlook.com', applicant_phone: '0903 112 233', position_title: 'AI & Machine Learning Intern', branch_name: 'Cơ sở 2 - TP. Hồ Chí Minh', status: 'APPROVED', created_at: new Date(Date.now() - 86400000 * 2).toISOString(), cv_file_path: '/uploads/cv_le_quoc_huy.pdf', cover_letter: 'Điểm GPA 3.8/4.0 chuyên ngành AI, có bài báo hội nghị sinh viên về NLP.' },
-  { id: 4, applicant_name: 'Phạm Minh Trang', applicant_email: 'trang.pm@gmail.com', applicant_phone: '0934 567 890', position_title: 'UI/UX Product Designer Intern', branch_name: 'Cơ sở 3 - Đà Nẵng', status: 'PENDING', created_at: new Date(Date.now() - 86400000 * 3).toISOString(), cv_file_path: '/uploads/cv_pham_minh_trang.pdf', cover_letter: 'Thành thạo Figma, Design System, Wireframing và nghiên cứu hành vi người dùng.' },
-  { id: 5, applicant_name: 'Vũ Đức Long', applicant_email: 'long.vu@hotmail.com', applicant_phone: '0978 999 888', position_title: 'DevOps & Cloud Engineer Intern', branch_name: 'Cơ sở 1 - Hà Nội', status: 'REVIEWING', created_at: new Date(Date.now() - 86400000 * 4).toISOString(), cv_file_path: '/uploads/cv_vu_duc_long.pdf', cover_letter: 'Nắm vững kiến thức Docker, CI/CD GitHub Actions, Linux Server.' },
-  { id: 6, applicant_name: 'Đỗ Hoàng Yến', applicant_email: 'yen.do@gmail.com', applicant_phone: '0911 223 344', position_title: 'Business Analyst (BA) Intern', branch_name: 'Cơ sở 4 - Cần Thơ', status: 'APPROVED', created_at: new Date(Date.now() - 86400000 * 5).toISOString(), cv_file_path: '/uploads/cv_do_hoang_yen.pdf', cover_letter: 'Kỹ năng phân tích nghiệp vụ, viết User Story, vẽ UML Sequence Diagram.' },
-  { id: 7, applicant_name: 'Ngô Hải Đăng', applicant_email: 'dang.ngo@gmail.com', applicant_phone: '0944 556 677', position_title: 'Mobile App Developer (Flutter) Intern', branch_name: 'Cơ sở 3 - Đà Nẵng', status: 'REJECTED', created_at: new Date(Date.now() - 86400000 * 6).toISOString(), cv_file_path: '/uploads/cv_ngo_hai_dang.pdf', cover_letter: 'Có đồ án môn học viết ứng dụng thương mại điện tử bằng Flutter/Dart.' },
-  { id: 8, applicant_name: 'Cao Khánh Linh', applicant_email: 'linh.cao@gmail.com', applicant_phone: '0922 334 455', position_title: 'QA / QC Software Tester Intern', branch_name: 'Cơ sở 5 - Hải Phòng', status: 'PENDING', created_at: new Date(Date.now() - 86400000 * 7).toISOString(), cv_file_path: '/uploads/cv_cao_khanh_linh.pdf', cover_letter: 'Nắm chắc kiến thức viết Test Case, Test Plan, tìm lỗi Functional Testing.' }
-];
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function AdminDashboard() {
   const location = useLocation();
+  const { notify, confirm } = useNotification();
 
-  // Dữ liệu
-  const [branches, setBranches] = useState(MOCK_BRANCHES);
-  const [users, setUsers] = useState(MOCK_USERS);
-  const [applications, setApplications] = useState(MOCK_APPLICATIONS);
-  const [loading, setLoading] = useState(false);
+  // Dữ liệu thật từ hệ thống
+  const [branches, setBranches] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Cuộn ngang cơ sở
   const branchScrollRef = useRef(null);
@@ -121,32 +77,19 @@ export default function AdminDashboard() {
       const apiUsers = uRes?.data?.data || [];
       const apiApps = appRes?.data?.data || [];
 
-      if (apiBranches.length > 0) {
-        const merged = [...apiBranches];
-        MOCK_BRANCHES.forEach((m) => {
-          if (!merged.some((b) => b.id === m.id || b.name.toLowerCase() === m.name.toLowerCase())) {
-            merged.push(m);
-          }
-        });
-        setBranches(merged);
+      if (bRes?.data?.success) {
+        setBranches(apiBranches);
       }
-
-      if (apiUsers.length > 0) {
-        const merged = [...apiUsers];
-        MOCK_USERS.forEach((m) => {
-          if (!merged.some((u) => u.email === m.email || u.id === m.id)) {
-            merged.push(m);
-          }
-        });
-        setUsers(merged);
+      if (uRes?.data?.success) {
+        setUsers(apiUsers);
       }
-
-      if (apiApps.length > 0) {
+      if (appRes?.data?.success) {
         setApplications(apiApps);
       }
     } catch (err) {
-      console.log('Đang dùng dữ liệu mô phỏng:', err.message);
+      console.error('Lỗi nạp dữ liệu quản trị:', err);
     } finally {
+      setLoading(false);
       if (isManual) setRefreshing(false);
     }
   };
@@ -173,62 +116,111 @@ export default function AdminDashboard() {
   const handleCreateBranch = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/admin/branches', branchForm);
+      const res = await api.post('/admin/branches', branchForm);
+      notify.success(res.data?.message || 'Thêm cơ sở mới thành công!');
       syncWithBackend();
-    } catch {
-      const newB = {
-        id: Date.now(),
-        name: branchForm.name,
-        address: branchForm.address,
-        status: 'ACTIVE'
-      };
-      setBranches((prev) => [newB, ...prev]);
+      setBranchForm({ name: '', address: '' });
+      setShowBranchForm(false);
+    } catch (err) {
+      notify.error(err.response?.data?.message || 'Không thể tạo cơ sở mới.');
     }
-    setBranchForm({ name: '', address: '' });
-    setShowBranchForm(false);
   };
 
   const handleToggleBranch = async (branch) => {
     const newStatus = branch.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
       await api.patch(`/admin/branches/${branch.id}/status`, { status: newStatus });
-    } catch { }
-    setBranches((prev) =>
-      prev.map((b) => (b.id === branch.id ? { ...b, status: newStatus } : b))
-    );
+      setBranches((prev) =>
+        prev.map((b) => (b.id === branch.id ? { ...b, status: newStatus } : b))
+      );
+      notify.success(
+        `Đã chuyển trạng thái cơ sở "${branch.name}" sang ${newStatus === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng'}!`,
+        'Cập nhật cơ sở'
+      );
+    } catch (err) {
+      notify.error(
+        err.response?.data?.message || 'Không thể thay đổi trạng thái cơ sở.',
+        'Lỗi cập nhật'
+      );
+    }
   };
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/admin/users', userForm);
+      const res = await api.post('/admin/users', userForm);
+      notify.success(res.data?.message || 'Tạo tài khoản người dùng thành công!');
       syncWithBackend();
-    } catch {
-      const selectedB = branches.find((b) => String(b.id) === String(userForm.branch_id));
-      const newU = {
-        id: Date.now(),
-        full_name: userForm.full_name,
-        email: userForm.email,
-        phone: userForm.phone,
-        role: userForm.role,
-        branch_id: userForm.branch_id,
-        branch_name: selectedB ? selectedB.name : 'Toàn hệ thống',
-        status: 'ACTIVE'
-      };
-      setUsers((prev) => [newU, ...prev]);
+      setUserForm({ full_name: '', email: '', password: '', phone: '', role: 'HR', branch_id: '' });
+      setShowUserForm(false);
+    } catch (err) {
+      notify.error(err.response?.data?.message || 'Không thể tạo tài khoản người dùng.');
     }
-    setUserForm({ full_name: '', email: '', password: '', phone: '', role: 'HR', branch_id: '' });
-    setShowUserForm(false);
   };
 
   const handleToggleUser = async (user) => {
     const newStatus = (user.status || 'ACTIVE') === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
       await api.patch(`/admin/users/${user.id}/status`, { status: newStatus });
-    } catch { }
-    setUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
-    );
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
+      );
+      notify.success(
+        `Đã ${newStatus === 'ACTIVE' ? 'mở khóa' : 'khóa'} tài khoản "${user.full_name}" thành công!`,
+        'Cập nhật tài khoản'
+      );
+    } catch (err) {
+      notify.error(
+        err.response?.data?.message || 'Không thể thay đổi trạng thái tài khoản.',
+        'Lỗi cập nhật'
+      );
+    }
+  };
+
+  const handleDeleteBranch = async (branch) => {
+    const confirmed = await confirm({
+      title: 'Xóa cơ sở',
+      message: `Bạn có chắc chắn muốn xóa cơ sở "${branch.name}"? Hành động này không thể hoàn tác.`,
+      confirmText: 'Xóa cơ sở',
+      cancelText: 'Hủy bỏ',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await api.delete(`/admin/branches/${branch.id}`);
+      setBranches((prev) => prev.filter((b) => b.id !== branch.id));
+      notify.success(
+        res.data?.message || `Đã xóa cơ sở "${branch.name}" thành công!`,
+        'Xóa cơ sở thành công'
+      );
+    } catch (err) {
+      const errMsg = err.response?.data?.message || 'Không thể xóa cơ sở này. Vui lòng thử lại.';
+      notify.error(errMsg, 'Không thể xóa cơ sở');
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    const confirmed = await confirm({
+      title: 'Xóa tài khoản người dùng',
+      message: `Bạn có chắc chắn muốn xóa tài khoản "${user.full_name}" (${user.email})? Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn.`,
+      confirmText: 'Xóa tài khoản',
+      cancelText: 'Hủy bỏ',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await api.delete(`/admin/users/${user.id}`);
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      notify.success(
+        res.data?.message || `Đã xóa tài khoản "${user.full_name}" thành công!`,
+        'Xóa tài khoản thành công'
+      );
+    } catch (err) {
+      const errMsg = err.response?.data?.message || 'Không thể xóa tài khoản này. Vui lòng thử lại.';
+      notify.error(errMsg, 'Không thể xóa tài khoản');
+    }
   };
 
   const scrollBranches = (direction) => {
@@ -821,16 +813,26 @@ export default function AdminDashboard() {
                           <StatusBadge status={branch.status} />
                         </td>
                         <td className="text-end pe-4">
-                          <button
-                            onClick={() => handleToggleBranch(branch)}
-                            className={`btn btn-sm d-inline-flex align-items-center gap-2 ${branch.status === 'ACTIVE'
-                              ? 'btn-outline-danger'
-                              : 'btn-outline-success'
-                              }`}
-                          >
-                            <i className={`bi ${branch.status === 'ACTIVE' ? 'bi-dash-circle' : 'bi-check-circle'}`}></i>
-                            <span>{branch.status === 'ACTIVE' ? 'Vô hiệu hóa' : 'Kích hoạt'}</span>
-                          </button>
+                          <div className="d-flex align-items-center justify-content-end gap-2">
+                            <button
+                              onClick={() => handleToggleBranch(branch)}
+                              className={`btn btn-sm d-inline-flex align-items-center gap-2 ${branch.status === 'ACTIVE'
+                                ? 'btn-outline-danger'
+                                : 'btn-outline-success'
+                                }`}
+                            >
+                              <i className={`bi ${branch.status === 'ACTIVE' ? 'bi-dash-circle' : 'bi-check-circle'}`}></i>
+                              <span>{branch.status === 'ACTIVE' ? 'Vô hiệu hóa' : 'Kích hoạt'}</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBranch(branch)}
+                              className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-2"
+                              title={`Xóa cơ sở ${branch.name}`}
+                            >
+                              <i className="bi bi-trash3"></i>
+                              <span>Xóa</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1176,16 +1178,26 @@ export default function AdminDashboard() {
                           </td>
                           <td className="text-end pe-4">
                             {u.role !== 'ADMIN' && (
-                              <button
-                                onClick={() => handleToggleUser(u)}
-                                className={`btn btn-sm d-inline-flex align-items-center gap-2 ${(u.status || 'ACTIVE') === 'ACTIVE'
-                                  ? 'btn-outline-danger'
-                                  : 'btn-outline-success'
-                                  }`}
-                              >
-                                <i className={`bi ${(u.status || 'ACTIVE') === 'ACTIVE' ? 'bi-lock' : 'bi-unlock'}`}></i>
-                                <span>{(u.status || 'ACTIVE') === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}</span>
-                              </button>
+                              <div className="d-flex align-items-center justify-content-end gap-2">
+                                <button
+                                  onClick={() => handleToggleUser(u)}
+                                  className={`btn btn-sm d-inline-flex align-items-center gap-2 ${(u.status || 'ACTIVE') === 'ACTIVE'
+                                    ? 'btn-outline-danger'
+                                    : 'btn-outline-success'
+                                    }`}
+                                >
+                                  <i className={`bi ${(u.status || 'ACTIVE') === 'ACTIVE' ? 'bi-lock' : 'bi-unlock'}`}></i>
+                                  <span>{(u.status || 'ACTIVE') === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(u)}
+                                  className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-2"
+                                  title={`Xóa tài khoản ${u.full_name}`}
+                                >
+                                  <i className="bi bi-trash3"></i>
+                                  <span>Xóa</span>
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>

@@ -275,6 +275,51 @@ const UserModel = {
         query += ` ORDER BY u.id DESC`;
         const [rows] = await pool.query(query, params);
         return rows;
+    },
+
+    async updateStatus(id, status) {
+        const [result] = await pool.query(
+            `UPDATE users SET status = ? WHERE id = ?`,
+            [status, id]
+        );
+        return result.affectedRows > 0;
+    },
+
+    async deleteById(id) {
+        // Check for intern records
+        const [interns] = await pool.query(
+            `SELECT COUNT(*) as count FROM interns WHERE user_id = ?`,
+            [id]
+        );
+        if (interns[0].count > 0) {
+            return { success: false, message: `Không thể xóa vì tài khoản này đang có ${interns[0].count} bản ghi thực tập liên kết.` };
+        }
+
+        // Check for mentor assignments
+        const [mentoring] = await pool.query(
+            `SELECT COUNT(*) as count FROM interns WHERE mentor_id = ?`,
+            [id]
+        );
+        if (mentoring[0].count > 0) {
+            return { success: false, message: `Không thể xóa vì tài khoản này đang là mentor hướng dẫn cho ${mentoring[0].count} thực tập sinh.` };
+        }
+
+        // Check for pending applications
+        const [applications] = await pool.query(
+            `SELECT COUNT(*) as count FROM applications WHERE applicant_id = ?`,
+            [id]
+        );
+        if (applications[0].count > 0) {
+            return { success: false, message: `Không thể xóa vì tài khoản này còn ${applications[0].count} đơn ứng tuyển trong hệ thống.` };
+        }
+
+        // Delete associated CVs first (CASCADE should handle this, but be explicit)
+        await pool.query(`DELETE FROM cvs WHERE user_id = ?`, [id]);
+        // Delete notifications
+        await pool.query(`DELETE FROM notifications WHERE user_id = ? OR sender_id = ?`, [id, id]);
+
+        const [result] = await pool.query(`DELETE FROM users WHERE id = ?`, [id]);
+        return { success: result.affectedRows > 0 };
     }
 };
 
