@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const UserModel = require('../models/userModel');
+const { isValidEmail, isValidPhone } = require('../utils/validators');
 
 const generateToken = (user) => {
     return jwt.sign(
@@ -31,7 +32,24 @@ const AuthController = {
                 });
             }
 
-            if (password.length < 6) {
+            const cleanEmail = String(email).trim().toLowerCase();
+            if (!isValidEmail(cleanEmail)) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'email',
+                    message: 'Địa chỉ email không đúng định dạng.'
+                });
+            }
+
+            if (phone && !isValidPhone(String(phone).trim())) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'phone',
+                    message: 'Số điện thoại không đúng định dạng (VD: 0912345678).'
+                });
+            }
+
+            if (String(password).trim().length < 6) {
                 return res.status(400).json({
                     success: false,
                     message: 'Mật khẩu phải có ít nhất 6 ký tự.'
@@ -39,7 +57,7 @@ const AuthController = {
             }
 
             // Check if email already exists
-            const existingUser = await UserModel.findByEmail(email.trim().toLowerCase());
+            const existingUser = await UserModel.findByEmail(cleanEmail);
             if (existingUser) {
                 return res.status(400).json({
                     success: false,
@@ -174,7 +192,27 @@ const AuthController = {
     async updateProfile(req, res, next) {
         try {
             const { full_name, phone, avatar } = req.body;
-            await UserModel.updateProfile(req.user.id, { full_name, phone, avatar });
+
+            if (full_name !== undefined && !String(full_name).trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Họ và tên không được để trống.'
+                });
+            }
+
+            if (phone && !isValidPhone(String(phone).trim())) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'phone',
+                    message: 'Số điện thoại không đúng định dạng (VD: 0912345678).'
+                });
+            }
+
+            await UserModel.updateProfile(req.user.id, { 
+                full_name: full_name ? String(full_name).trim() : undefined, 
+                phone: phone ? String(phone).trim() : null, 
+                avatar 
+            });
 
             const updatedUser = await UserModel.findById(req.user.id);
             return res.status(200).json({
@@ -232,7 +270,7 @@ const AuthController = {
     async forgotPassword(req, res, next) {
         try {
             const { email } = req.body;
-            if (!email || !email.trim()) {
+            if (!email || !String(email).trim()) {
                 return res.status(400).json({
                     success: false,
                     field: 'email',
@@ -240,7 +278,15 @@ const AuthController = {
                 });
             }
 
-            const cleanEmail = email.trim().toLowerCase();
+            const cleanEmail = String(email).trim().toLowerCase();
+            if (!isValidEmail(cleanEmail)) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'email',
+                    message: 'Địa chỉ email không đúng định dạng.'
+                });
+            }
+
             const user = await UserModel.findByEmail(cleanEmail);
             if (!user) {
                 return res.status(404).json({
@@ -297,7 +343,15 @@ const AuthController = {
                 });
             }
 
-            const cleanEmail = email.trim().toLowerCase();
+            const cleanEmail = String(email).trim().toLowerCase();
+            if (!isValidEmail(cleanEmail)) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'email',
+                    message: 'Địa chỉ email không đúng định dạng.'
+                });
+            }
+
             const stored = otpStore.get(cleanEmail);
 
             if (!stored || stored.expiresAt < Date.now()) {

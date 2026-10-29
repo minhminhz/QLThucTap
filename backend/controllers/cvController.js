@@ -1,6 +1,7 @@
 const fs   = require('fs');
 const path = require('path');
 const CvModel = require('../models/cvModel');
+const { isValidId } = require('../utils/validators');
 
 const CvController = {
 
@@ -55,6 +56,10 @@ const CvController = {
     // • ADMIN / HR / MENTOR: can view any CV
     async viewCV(req, res, next) {
         try {
+            if (!isValidId(req.params.id)) {
+                return res.status(400).json({ success: false, message: 'Mã CV không hợp lệ.' });
+            }
+
             const cv = await CvModel.findById(req.params.id);
 
             if (!cv) {
@@ -111,6 +116,10 @@ const CvController = {
     // DELETE /api/cvs/:id (Applicant / Admin)
     async deleteCV(req, res, next) {
         try {
+            if (!isValidId(req.params.id)) {
+                return res.status(400).json({ success: false, message: 'Mã CV không hợp lệ.' });
+            }
+
             const cv = await CvModel.findById(req.params.id);
             if (!cv) {
                 return res.status(404).json({ success: false, message: 'Không tìm thấy CV này.' });

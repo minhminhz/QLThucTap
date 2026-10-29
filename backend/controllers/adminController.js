@@ -3,6 +3,7 @@ const pool = require('../config/db');
 const BranchModel = require('../models/branchModel');
 const UserModel = require('../models/userModel');
 const DepartmentModel = require('../models/departmentModel');
+const { isValidEmail, isValidPhone, isValidId } = require('../utils/validators');
 
 const AdminController = {
     // GET /api/admin/dashboard
@@ -77,6 +78,13 @@ const AdminController = {
                 return res.status(400).json({
                     success: false,
                     message: 'Vui lòng nhập Tên cơ sở và Địa chỉ.'
+                });
+            }
+
+            if (phone && !isValidPhone(String(phone).trim())) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Số điện thoại cơ sở không đúng định dạng (VD: 0912345678).'
                 });
             }
 
@@ -205,6 +213,30 @@ const AdminController = {
                 });
             }
 
+            const cleanEmail = String(email).trim().toLowerCase();
+            if (!isValidEmail(cleanEmail)) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'email',
+                    message: 'Địa chỉ email không đúng định dạng.'
+                });
+            }
+
+            if (phone && !isValidPhone(String(phone).trim())) {
+                return res.status(400).json({
+                    success: false,
+                    field: 'phone',
+                    message: 'Số điện thoại không đúng định dạng (VD: 0912345678).'
+                });
+            }
+
+            if (password.length < 6) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu phải có ít nhất 6 ký tự.'
+                });
+            }
+
             const validRoles = ['ADMIN', 'HR', 'MENTOR', 'INTERN', 'APPLICANT'];
             if (!validRoles.includes(role)) {
                 return res.status(400).json({
@@ -220,9 +252,9 @@ const AdminController = {
                 });
             }
 
-            const existing = await UserModel.findByEmail(email.trim().toLowerCase());
+            const existing = await UserModel.findByEmail(cleanEmail);
             if (existing) {
-                return res.status(400).json({
+                return res.status(409).json({
                     success: false,
                     message: 'Email này đã tồn tại trong hệ thống.'
                 });
@@ -233,7 +265,7 @@ const AdminController = {
 
             const userId = await UserModel.create({
                 full_name: full_name.trim(),
-                email: email.trim().toLowerCase(),
+                email: cleanEmail,
                 password: hashedPassword,
                 phone: phone ? phone.trim() : null,
                 role,

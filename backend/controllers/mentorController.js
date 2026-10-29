@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const InternModel = require('../models/internModel');
 const TaskModel = require('../models/taskModel');
+const { isValidId, isValidScore } = require('../utils/validators');
 
 const MentorController = {
     // GET /api/mentor/dashboard
@@ -96,6 +97,10 @@ const MentorController = {
     // PATCH /api/mentor/interns/:id/final-review
     async submitFinalReview(req, res, next) {
         try {
+            if (!isValidId(req.params.id)) {
+                return res.status(400).json({ success: false, message: 'Mã định danh thực tập sinh không hợp lệ.' });
+            }
+
             const {
                 final_review, rating, mentor_recommendation = 'PASS', mentor_offer_recommendation = false,
                 score_discipline, score_competence, score_skills,
@@ -103,7 +108,15 @@ const MentorController = {
                 evaluation_advantages, evaluation_limitations,
                 school_name, student_code, university_class, major_name, academic_year
             } = req.body;
-            if (!final_review) return res.status(400).json({ success: false, message: 'Vui lòng nhập nhận xét tổng kết.' });
+
+            if (!final_review || !String(final_review).trim()) {
+                return res.status(400).json({ success: false, message: 'Vui lòng nhập nhận xét tổng kết.' });
+            }
+
+            if (!['PASS', 'FAIL'].includes(mentor_recommendation)) {
+                return res.status(400).json({ success: false, message: 'Đề xuất đánh giá chỉ có thể là PASS (Đạt) hoặc FAIL (Không đạt).' });
+            }
+
             const intern = await InternModel.findById(req.params.id);
             if (!intern) return res.status(404).json({ success: false, message: 'Không tìm thấy thực tập sinh.' });
             if (intern.mentor_id !== req.user.id && req.user.role !== 'ADMIN') {
@@ -128,11 +141,26 @@ const MentorController = {
                 }
             }
 
+            // Validate section scores
+            if (discScore !== null && !isValidScore(discScore, 0, 10)) {
+                return res.status(400).json({ success: false, message: 'Điểm Ý thức kỷ luật phải nằm trong khoảng từ 0 đến 10.' });
+            }
+            if (compScore !== null && !isValidScore(compScore, 0, 10)) {
+                return res.status(400).json({ success: false, message: 'Điểm Năng lực chuyên môn phải nằm trong khoảng từ 0 đến 10.' });
+            }
+            if (skillScore !== null && !isValidScore(skillScore, 0, 10)) {
+                return res.status(400).json({ success: false, message: 'Điểm Kỹ năng làm việc phải nằm trong khoảng từ 0 đến 10.' });
+            }
+
             // Calculate rating if sections are provided
             let finalRating = rating !== undefined && rating !== null && rating !== '' ? parseFloat(rating) : null;
             if (discScore !== null && compScore !== null && skillScore !== null) {
                 const totalScore = discScore + compScore + skillScore;
                 finalRating = Math.round(totalScore * 10) / 10;
+            }
+
+            if (finalRating !== null && !isValidScore(finalRating, 0, 10)) {
+                return res.status(400).json({ success: false, message: 'Điểm đánh giá tổng kết phải nằm trong khoảng từ 0 đến 10.' });
             }
 
             await InternModel.submitMentorEvaluation(intern.id, {
@@ -190,6 +218,13 @@ const MentorController = {
     // GET /api/mentor/interns/:id
     async getInternDetail(req, res, next) {
         try {
+            if (!isValidId(req.params.id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mã định danh thực tập sinh không hợp lệ.'
+                });
+            }
+
             const intern = await InternModel.findById(req.params.id);
             if (!intern) {
                 return res.status(404).json({

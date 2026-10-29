@@ -155,8 +155,8 @@ export default function HRMentors() {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setFormError('');
-    if (newPassword.length < 8) {
-      setFormError('Mật khẩu mới phải có ít nhất 8 ký tự.');
+    if (newPassword.length < 6) {
+      setFormError('Mật khẩu mới phải có ít nhất 6 ký tự.');
       return;
     }
     setSubmitting(true);
@@ -400,9 +400,9 @@ export default function HRMentors() {
                       className="form-control"
                       value={form.password}
                       onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      placeholder="Ít nhất 8 ký tự"
+                      placeholder="Ít nhất 6 ký tự"
                       required
-                      minLength={8}
+                      minLength={6}
                     />
                     <div className="form-text text-muted">Mentor sẽ tự đổi mật khẩu trong trang Hồ sơ sau khi đăng nhập.</div>
                   </div>
@@ -571,9 +571,9 @@ export default function HRMentors() {
                       className="form-control"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Ít nhất 8 ký tự"
+                      placeholder="Ít nhất 6 ký tự"
                       required
-                      minLength={8}
+                      minLength={6}
                     />
                   </div>
                 </div>

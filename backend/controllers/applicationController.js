@@ -2,6 +2,7 @@ const ApplicationModel = require('../models/applicationModel');
 const PositionModel = require('../models/positionModel');
 const CvModel = require('../models/cvModel');
 const UserModel = require('../models/userModel');
+const { isValidEmail, isValidPhone, isValidId } = require('../utils/validators');
 
 const ApplicationController = {
     // POST /api/applications (Applicant)
@@ -16,17 +17,13 @@ const ApplicationController = {
             if (!applicant_email || !String(applicant_email).trim()) {
                 return res.status(400).json({ success: false, message: 'Vui lòng nhập địa chỉ email liên hệ.' });
             }
-            // Basic email format check
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(String(applicant_email).trim())) {
+            if (!isValidEmail(String(applicant_email).trim())) {
                 return res.status(400).json({ success: false, message: 'Địa chỉ email không đúng định dạng.' });
             }
             if (!applicant_phone || !String(applicant_phone).trim()) {
                 return res.status(400).json({ success: false, message: 'Vui lòng nhập số điện thoại liên hệ.' });
             }
-            // Phone: 10-11 digits, may start with +84
-            const phoneRegex = /^(\+84|0)[0-9]{8,10}$/;
-            if (!phoneRegex.test(String(applicant_phone).trim().replace(/\s/g, ''))) {
+            if (!isValidPhone(String(applicant_phone).trim())) {
                 return res.status(400).json({ success: false, message: 'Số điện thoại không đúng định dạng (VD: 0912345678).' });
             }
 
@@ -35,6 +32,13 @@ const ApplicationController = {
                     success: false,
                     message: 'Vui lòng chọn Vị trí thực tập và File CV đính kèm.'
                 });
+            }
+
+            if (!isValidId(position_id)) {
+                return res.status(400).json({ success: false, message: 'Mã vị trí tuyển dụng không hợp lệ.' });
+            }
+            if (!isValidId(cv_id)) {
+                return res.status(400).json({ success: false, message: 'Mã CV không hợp lệ.' });
             }
 
             // 1. Check Position

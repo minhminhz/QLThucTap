@@ -1,6 +1,7 @@
 const TaskModel = require('../models/taskModel');
 const InternModel = require('../models/internModel');
 const pool = require('../config/db');
+const { isValidId, isValidDate } = require('../utils/validators');
 
 const TaskController = {
     // ==========================================
@@ -37,6 +38,20 @@ const TaskController = {
                 return res.status(400).json({
                     success: false,
                     message: 'Vui lòng cung cấp đầy đủ thông tin: Thực tập sinh, Tiêu đề, Mô tả và Hạn chót (Deadline).'
+                });
+            }
+
+            if (!isValidId(intern_id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mã định danh thực tập sinh không hợp lệ.'
+                });
+            }
+
+            if (!isValidDate(deadline)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Hạn chót (Deadline) không đúng định dạng ngày hợp lệ.'
                 });
             }
 
@@ -378,6 +393,13 @@ const TaskController = {
     // PATCH /api/intern/tasks/:id/status
     async updateTaskStatus(req, res, next) {
         try {
+            if (!isValidId(req.params.id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mã định danh công việc không hợp lệ.'
+                });
+            }
+
             const { status } = req.body;
             const submission_content = req.body.submission_content ? req.body.submission_content.trim() : '';
             const valid = ['TODO', 'IN_PROGRESS', 'SUBMITTED'];
@@ -386,6 +408,14 @@ const TaskController = {
                 return res.status(400).json({
                     success: false,
                     message: 'Thực tập sinh chỉ có thể chuyển trạng thái sang TODO, IN_PROGRESS, hoặc SUBMITTED.'
+                });
+            }
+
+            // Giới hạn độ dài nội dung nộp bài
+            if (submission_content && submission_content.length > 5000) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Nội dung mô tả bài nộp không được vượt quá 5000 ký tự.'
                 });
             }
 

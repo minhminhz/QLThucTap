@@ -1,4 +1,5 @@
 const NotificationModel = require('../models/notificationModel');
+const { isValidId } = require('../utils/validators');
 
 const NotificationController = {
     // GET /api/notifications
@@ -40,6 +41,13 @@ const NotificationController = {
     // PATCH /api/notifications/:id/read
     async markAsRead(req, res, next) {
         try {
+            if (!isValidId(req.params.id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mã thông báo không hợp lệ.'
+                });
+            }
+
             const success = await NotificationModel.markAsRead(req.params.id, req.user.id);
             if (!success) {
                 return res.status(404).json({
@@ -77,6 +85,13 @@ const NotificationController = {
     // DELETE /api/notifications/:id
     async deleteNotification(req, res, next) {
         try {
+            if (!isValidId(req.params.id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mã thông báo không hợp lệ.'
+                });
+            }
+
             const success = await NotificationModel.delete(req.params.id, req.user.id);
             if (!success) {
                 return res.status(404).json({

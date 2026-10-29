@@ -4,6 +4,7 @@ const PositionModel = require('../models/positionModel');
 const ApplicationModel = require('../models/applicationModel');
 const InternModel = require('../models/internModel');
 const UserModel = require('../models/userModel');
+const { isValidEmail, isValidPhone, isValidDate, isFutureOrToday, isValidId } = require('../utils/validators');
 
 function getEnforcedBranchId(req) {
     if (req.user.role === 'ADMIN') {
@@ -99,6 +100,30 @@ const HrController = {
                     success: false,
                     message: 'Vui lòng điền tiêu đề vị trí và hạn nộp hồ sơ.'
                 });
+            }
+
+            if (!isValidDate(deadline)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Hạn nộp hồ sơ (deadline) không đúng định dạng ngày.'
+                });
+            }
+
+            if (!isFutureOrToday(deadline)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Hạn nộp hồ sơ (deadline) phải từ hôm nay trở đi, không được sử dụng ngày trong quá khứ.'
+                });
+            }
+
+            if (quantity !== undefined && quantity !== null && quantity !== '') {
+                const qty = parseInt(quantity, 10);
+                if (isNaN(qty) || qty < 1) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Số lượng tuyển dụng phải là số nguyên dương (ít nhất là 1).'
+                    });
+                }
             }
 
             const positionId = await PositionModel.create({
@@ -251,6 +276,28 @@ const HrController = {
                     success: false,
                     message: 'Bạn chỉ có quyền xét duyệt hồ sơ ứng tuyển thuộc cơ sở của mình.'
                 });
+            }
+
+            // Validate start_date / end_date if APPROVED
+            if (status === 'APPROVED') {
+                if (start_date && !isValidDate(start_date)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Ngày bắt đầu thực tập (start_date) không đúng định dạng.'
+                    });
+                }
+                if (end_date && !isValidDate(end_date)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Ngày kết thúc thực tập (end_date) không đúng định dạng.'
+                    });
+                }
+                if (start_date && end_date && new Date(start_date) >= new Date(end_date)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Ngày bắt đầu thực tập phải trước ngày kết thúc.'
+                    });
+                }
             }
 
             // Execute in transaction if APPROVED to create intern record
@@ -582,16 +629,33 @@ const HrController = {
                 });
             }
 
-            if (password.length < 8) {
+            const cleanEmail = String(email).trim().toLowerCase();
+            if (!isValidEmail(cleanEmail)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Mật khẩu phải có ít nhất 8 ký tự.'
+                    field: 'email',
+                    message: 'Địa chỉ email không đúng định dạng.'
                 });
             }
 
-            const existing = await UserModel.findByEmail(email.trim().toLowerCase());
-            if (existing) {
+            if (phone && !isValidPhone(String(phone).trim())) {
                 return res.status(400).json({
+                    success: false,
+                    field: 'phone',
+                    message: 'Số điện thoại không đúng định dạng (VD: 0912345678).'
+                });
+            }
+
+            if (password.length < 6) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mật khẩu phải có ít nhất 6 ký tự.'
+                });
+            }
+
+            const existing = await UserModel.findByEmail(cleanEmail);
+            if (existing) {
+                return res.status(409).json({
                     success: false,
                     message: 'Email này đã tồn tại trong hệ thống.'
                 });
@@ -602,7 +666,7 @@ const HrController = {
 
             const mentorId = await UserModel.create({
                 full_name: full_name.trim(),
-                email: email.trim().toLowerCase(),
+                email: cleanEmail,
                 password: hashedPassword,
                 phone: phone ? phone.trim() : null,
                 role: 'MENTOR',
@@ -745,10 +809,10 @@ const HrController = {
             const mentorId = parseInt(req.params.id, 10);
             const { new_password } = req.body;
 
-            if (!new_password || new_password.length < 8) {
+            if (!new_password || new_password.length < 6) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Mật khẩu mới phải có ít nhất 8 ký tự.'
+                    message: 'Mật khẩu mới phải có ít nhất 6 ký tự.'
                 });
             }
 
