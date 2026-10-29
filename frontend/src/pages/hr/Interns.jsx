@@ -658,14 +658,14 @@ export default function HRInterns() {
                             </button>
                           )}
 
-                          {/* Xem & In Giấy xác nhận & Phiếu đánh giá đã cấp */}
+                          {/* Xem & Tải Giấy xác nhận & Phiếu đánh giá đã cấp */}
                           {intern.certificate_status === 'APPROVED' && (
                             <button
                               onClick={() => setViewingCert(intern)}
                               className="btn btn-sm btn-success"
-                              title="Xem & In Giấy xác nhận & Phiếu đánh giá thực tập"
+                              title="Xem & Tải Giấy xác nhận & Phiếu đánh giá thực tập (Chuẩn A4)"
                             >
-                              <i className="bi bi-file-earmark-pdf me-1" /> In Giấy & ĐG
+                              <i className="bi bi-file-earmark-arrow-down me-1" /> Xem & Tải Giấy
                             </button>
                           )}
 
@@ -1078,7 +1078,7 @@ export default function HRInterns() {
 
                     <div className="alert alert-info py-2 px-3 small mb-0">
                       <i className="bi bi-info-circle me-1" />
-                      Sau khi cấp, thực tập sinh sẽ nhận thông báo trên bảng điều khiển để xem và in/xuất PDF trực tiếp.
+                      Sau khi cấp, thực tập sinh sẽ nhận thông báo trên bảng điều khiển để xem và tải file PDF trực tiếp.
                     </div>
                   </div>
                   <div className="modal-footer bg-light py-2">

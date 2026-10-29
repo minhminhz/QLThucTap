@@ -839,7 +839,7 @@ export default function InternDashboard() {
                         onClick={() => setViewCertModal(true)}
                         className="btn btn-sm btn-success fw-semibold"
                       >
-                        <i className="bi bi-file-earmark-pdf-fill me-1" /> Xem & In Giấy XN & Phiếu Đánh Giá
+                        <i className="bi bi-file-earmark-pdf-fill me-1" /> Xem & Tải Giấy XN & Phiếu Đánh Giá
                       </button>
                     )}
 
