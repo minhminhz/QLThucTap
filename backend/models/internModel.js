@@ -175,8 +175,13 @@ const InternModel = {
         rating, final_review, mentor_recommendation = 'PASS', mentor_offer_recommendation = 0,
         score_discipline = null, score_competence = null, score_skills = null,
         evaluation_advantages = null, evaluation_limitations = null,
+        evaluation_criteria = null,
         school_name = null, student_code = null, university_class = null, major_name = null, academic_year = null
     }) {
+        const criteriaJson = evaluation_criteria 
+            ? (typeof evaluation_criteria === 'string' ? evaluation_criteria : JSON.stringify(evaluation_criteria)) 
+            : null;
+
         const [result] = await pool.query(
             `UPDATE interns 
              SET rating = ?, 
@@ -188,6 +193,7 @@ const InternModel = {
                  score_skills = COALESCE(?, score_skills),
                  evaluation_advantages = COALESCE(?, evaluation_advantages),
                  evaluation_limitations = COALESCE(?, evaluation_limitations),
+                 evaluation_criteria = COALESCE(?, evaluation_criteria),
                  school_name = COALESCE(?, school_name),
                  student_code = COALESCE(?, student_code),
                  university_class = COALESCE(?, university_class),
@@ -196,10 +202,21 @@ const InternModel = {
                  mentor_evaluated_at = NOW()
              WHERE id = ?`,
             [
-                rating || null, final_review, mentor_recommendation, mentor_offer_recommendation ? 1 : 0,
-                score_discipline, score_competence, score_skills,
-                evaluation_advantages, evaluation_limitations,
-                school_name, student_code, university_class, major_name, academic_year,
+                rating !== undefined && rating !== null && rating !== '' ? parseFloat(rating) : null,
+                final_review,
+                mentor_recommendation,
+                mentor_offer_recommendation ? 1 : 0,
+                score_discipline !== undefined && score_discipline !== null && score_discipline !== '' ? parseFloat(score_discipline) : null,
+                score_competence !== undefined && score_competence !== null && score_competence !== '' ? parseFloat(score_competence) : null,
+                score_skills !== undefined && score_skills !== null && score_skills !== '' ? parseFloat(score_skills) : null,
+                evaluation_advantages,
+                evaluation_limitations,
+                criteriaJson,
+                school_name,
+                student_code,
+                university_class,
+                major_name,
+                academic_year,
                 id
             ]
         );

@@ -104,7 +104,7 @@ export default function CertificateModal({ internship: initialInternship, onClos
       } else {
         res = await api.put('/intern/internship/student-info', studentForm);
       }
-      
+
       const updatedData = res.data.data;
       setInternship(updatedData);
       setSaveSuccessMsg('Đã lưu thông tin cá nhân và trường lớp thành công!');
@@ -151,7 +151,7 @@ export default function CertificateModal({ internship: initialInternship, onClos
       };
 
       await html2pdf().set(opt).from(element).save();
-      notify.success(`Đã tải xuống thành công file ${docTitle}! Bạn có thể mở file bằng công cụ bên ngoài để in ấn chuẩn khổ A4.`, 'Tải xuống hoàn tất');
+      notify.success(`Đã tải xuống thành công file ${docTitle}!`, 'Tải xuống hoàn tất');
     } catch (err) {
       console.error('Lỗi khi tải file:', err);
       notify.error('Có lỗi xảy ra khi tạo file tải xuống. Vui lòng thử lại!', 'Tải xuống thất bại');
@@ -184,7 +184,7 @@ export default function CertificateModal({ internship: initialInternship, onClos
     setIsDownloading(true);
     try {
       notify.info('Đang chuẩn bị tải trọn bộ hồ sơ (Giấy xác nhận & Phiếu đánh giá)...', 'Tải bộ hồ sơ');
-      
+
       const internName = sanitizeFileName(internship.custom_intern_name || internship.intern_name || 'TTS');
       const studentCode = sanitizeFileName(internship.student_code || '');
 
@@ -219,7 +219,7 @@ export default function CertificateModal({ internship: initialInternship, onClos
         await html2pdf().set(opt2).from(evalRef.current).save();
       }
 
-      notify.success('Đã tải xuống thành công trọn bộ cả 2 tài liệu chuẩn khổ A4!', 'Hoàn tất tải bộ hồ sơ');
+      notify.success('Đã tải xuống thành công trọn bộ cả 2 tài liệu', 'Hoàn tất tải bộ hồ sơ');
     } catch (err) {
       console.error('Lỗi tải trọn bộ:', err);
       notify.error('Có lỗi xảy ra khi tải bộ tài liệu.', 'Tải thất bại');
@@ -244,6 +244,17 @@ export default function CertificateModal({ internship: initialInternship, onClos
   const skillsScore = parseFloat(internship.score_skills || (totalScore >= 9 ? 2.5 : 2.2));
   const rank = getRatingRank(totalScore);
 
+  let criteria = {};
+  if (internship.evaluation_criteria) {
+    try {
+      criteria = typeof internship.evaluation_criteria === 'string'
+        ? JSON.parse(internship.evaluation_criteria)
+        : (internship.evaluation_criteria || {});
+    } catch (e) {
+      criteria = {};
+    }
+  }
+
   const displayName = internship.custom_intern_name || internship.intern_name || '...';
   const displayDob = internship.student_dob || '...';
   const displayGender = internship.student_gender || 'Nam';
@@ -266,7 +277,7 @@ export default function CertificateModal({ internship: initialInternship, onClos
               <div className="d-flex align-items-center gap-3 flex-wrap">
                 <span className="fw-bold fs-6">
                   <i className="bi bi-file-earmark-medical-fill text-warning me-2" />
-                  Hồ Sơ Xác Nhận & Đánh Giá Thực Tập (Chuẩn Khổ A4)
+                  Hồ Sơ Xác Nhận & Đánh Giá Thực Tập
                 </span>
                 <div className="btn-group btn-group-sm" role="group">
                   <button
@@ -495,7 +506,7 @@ export default function CertificateModal({ internship: initialInternship, onClos
             <div className="modal-body p-3 p-md-4 bg-secondary bg-opacity-10 overflow-auto" style={{ maxHeight: '78vh' }}>
               <div className="d-flex justify-content-center mb-2">
                 <span className="badge bg-light text-secondary border px-3 py-1.5 small">
-                  <i className="bi bi-aspect-ratio me-1" /> Kích thước chuẩn khổ A4 (210mm x 297mm) • Tải xuống giữ nguyên 100% định dạng, không đè chữ
+                  <i className="bi bi-aspect-ratio me-1" /> Kích thước A4 (210mm x 297mm)
                 </span>
               </div>
 
@@ -892,26 +903,32 @@ export default function CertificateModal({ internship: initialInternship, onClos
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.1</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Chấp hành nghiêm chỉnh nội quy, quy chế và bảo mật công ty</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>0.5</td>
-                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>0.5</td>
+                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
+                              {criteria.c1_1 !== undefined ? parseFloat(criteria.c1_1).toFixed(1) : '0.5'}
+                            </td>
                           </tr>
                           <tr>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.2</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Chấp hành giờ giấc làm việc, đi làm đúng giờ, nghỉ có phép</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>0.5</td>
-                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>0.5</td>
+                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
+                              {criteria.c1_2 !== undefined ? parseFloat(criteria.c1_2).toFixed(1) : '0.5'}
+                            </td>
                           </tr>
                           <tr>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.3</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Tác phong làm việc nghiêm túc, giao tiếp văn minh chuẩn mực</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>0.5</td>
-                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>0.5</td>
+                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
+                              {criteria.c1_3 !== undefined ? parseFloat(criteria.c1_3).toFixed(1) : '0.5'}
+                            </td>
                           </tr>
                           <tr>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.4</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Tinh thần cầu thị, trung thực và tinh thần trách nhiệm cao</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>0.5</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
-                              {(disciplineScore - 1.5 > 0 ? (disciplineScore - 1.5).toFixed(1) : '0.4')}
+                              {criteria.c1_4 !== undefined ? parseFloat(criteria.c1_4).toFixed(1) : (disciplineScore - 1.5 > 0 ? (disciplineScore - 1.5).toFixed(1) : '0.4')}
                             </td>
                           </tr>
                           <tr style={{ backgroundColor: '#e8f5e9', fontWeight: 'bold' }}>
@@ -928,26 +945,32 @@ export default function CertificateModal({ internship: initialInternship, onClos
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>2.1</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Khả năng tiếp thu hướng dẫn, nắm bắt quy trình công việc</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.0</td>
-                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>0.9</td>
+                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
+                              {criteria.c2_1 !== undefined ? parseFloat(criteria.c2_1).toFixed(1) : '0.9'}
+                            </td>
                           </tr>
                           <tr>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>2.2</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Vận dụng kiến thức học đường vào giải quyết công việc thực tế</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>2.0</td>
-                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>1.8</td>
+                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
+                              {criteria.c2_2 !== undefined ? parseFloat(criteria.c2_2).toFixed(1) : '1.8'}
+                            </td>
                           </tr>
                           <tr>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>2.3</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Kỹ năng giải quyết vấn đề, xử lý tình huống nghiệp vụ phát sinh</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.0</td>
-                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>0.9</td>
+                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
+                              {criteria.c2_3 !== undefined ? parseFloat(criteria.c2_3).toFixed(1) : '0.9'}
+                            </td>
                           </tr>
                           <tr>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>2.4</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Chất lượng sản phẩm và tiến độ hoàn thành các nhiệm vụ được giao</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.0</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
-                              {(competenceScore - 3.6 > 0 ? (competenceScore - 3.6).toFixed(1) : '0.9')}
+                              {criteria.c2_4 !== undefined ? parseFloat(criteria.c2_4).toFixed(1) : (competenceScore - 3.6 > 0 ? (competenceScore - 3.6).toFixed(1) : '0.9')}
                             </td>
                           </tr>
                           <tr style={{ backgroundColor: '#e8f5e9', fontWeight: 'bold' }}>
@@ -964,20 +987,24 @@ export default function CertificateModal({ internship: initialInternship, onClos
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>3.1</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Khả năng giao tiếp, trình bày và báo cáo công việc</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.0</td>
-                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>0.8</td>
+                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
+                              {criteria.c3_1 !== undefined ? parseFloat(criteria.c3_1).toFixed(1) : '0.8'}
+                            </td>
                           </tr>
                           <tr>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>3.2</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Tinh thần làm việc nhóm, phối hợp tốt với đồng nghiệp</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.0</td>
-                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>0.9</td>
+                            <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
+                              {criteria.c3_2 !== undefined ? parseFloat(criteria.c3_2).toFixed(1) : '0.9'}
+                            </td>
                           </tr>
                           <tr>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>3.3</td>
                             <td style={{ border: '1px solid #333', padding: '1.5px 3px' }}>Tính chủ động, sáng tạo và tự học nâng cao trình độ</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px' }}>1.0</td>
                             <td style={{ textAlign: 'center', border: '1px solid #333', padding: '1.5px 3px', fontWeight: 'bold' }}>
-                              {(skillsScore - 1.7 > 0 ? (skillsScore - 1.7).toFixed(1) : '0.8')}
+                              {criteria.c3_3 !== undefined ? parseFloat(criteria.c3_3).toFixed(1) : (skillsScore - 1.7 > 0 ? (skillsScore - 1.7).toFixed(1) : '0.8')}
                             </td>
                           </tr>
                           <tr style={{ backgroundColor: '#e8f5e9', fontWeight: 'bold' }}>
@@ -1101,7 +1128,7 @@ export default function CertificateModal({ internship: initialInternship, onClos
                   disabled={isDownloading}
                   onClick={() => handleDownloadPdf(activeDoc)}
                   className="btn btn-sm btn-success fw-semibold px-3 shadow-sm"
-                  title="Tải file PDF chuẩn A4 về máy để in bằng công cụ chuyên dụng bên ngoài"
+                  title="Tải file PDF"
                 >
                   {isDownloading ? (
                     <>
@@ -1111,7 +1138,7 @@ export default function CertificateModal({ internship: initialInternship, onClos
                   ) : (
                     <>
                       <i className="bi bi-download me-1.5" />
-                      Tải xuống {activeDoc === 'CERTIFICATE' ? 'Giấy xác nhận' : 'Phiếu đánh giá'} (PDF A4)
+                      Tải xuống {activeDoc === 'CERTIFICATE' ? 'Giấy xác nhận' : 'Phiếu đánh giá'}
                     </>
                   )}
                 </button>

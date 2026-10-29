@@ -201,7 +201,7 @@ export default function HRDashboard() {
             {user?.branch_name && (
               <span className="ms-2 badge bg-primary-subtle text-primary border border-primary-subtle">
                 <i className="bi bi-geo-alt-fill me-1" />
-                Cơ sở mặc định: {user.branch_name}
+                Cơ sở: {user.branch_name}
               </span>
             )}
           </span>
@@ -236,7 +236,7 @@ export default function HRDashboard() {
       </PageHeader>
 
       {/* Facility / Branch Selector Filter */}
-      <div className="card shadow-xs border mb-4 bg-white">
+      {/* <div className="card shadow-xs border mb-4 bg-white">
         <div className="card-body p-3">
           <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
             <div className="d-flex align-items-center gap-2">
@@ -244,11 +244,11 @@ export default function HRDashboard() {
                 <i className="bi bi-buildings-fill fs-5" />
               </div>
               <div>
-                <strong className="d-block text-dark small">Xem dữ liệu theo Cơ sở Công ty:</strong>
+                <strong className="d-block text-dark small">Các cơ sở:</strong>
                 <span className="text-muted small">
                   {selectedBranch === 'all'
                     ? 'Hiển thị dữ liệu toàn bộ tất cả cơ sở'
-                    : `Đang lọc theo: Cơ sở ${selectedBranchObj?.name || selectedBranch}`}
+                    : `Cơ sở: ${selectedBranchObj?.name || selectedBranch}`}
                 </span>
               </div>
             </div>
@@ -257,9 +257,8 @@ export default function HRDashboard() {
               <button
                 type="button"
                 onClick={() => handleBranchChange('all')}
-                className={`btn btn-sm ${
-                  selectedBranch === 'all' ? 'btn-primary shadow-sm' : 'btn-outline-secondary'
-                }`}
+                className={`btn btn-sm ${selectedBranch === 'all' ? 'btn-primary shadow-sm' : 'btn-outline-secondary'
+                  }`}
               >
                 <i className="bi bi-globe2 me-1" />
                 Tất cả cơ sở
@@ -269,11 +268,10 @@ export default function HRDashboard() {
                   key={b.id}
                   type="button"
                   onClick={() => handleBranchChange(String(b.id))}
-                  className={`btn btn-sm ${
-                    String(selectedBranch) === String(b.id)
-                      ? 'btn-primary shadow-sm'
-                      : 'btn-outline-secondary'
-                  }`}
+                  className={`btn btn-sm ${String(selectedBranch) === String(b.id)
+                    ? 'btn-primary shadow-sm'
+                    : 'btn-outline-secondary'
+                    }`}
                 >
                   <i className="bi bi-geo-alt-fill me-1" />
                   {b.name}
@@ -282,7 +280,7 @@ export default function HRDashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Stats Cards */}
       <div className="row g-3 mb-4">
@@ -324,9 +322,8 @@ export default function HRDashboard() {
       <ul className="nav nav-pills mb-4 gap-2 bg-white p-2 rounded-3 border shadow-xs">
         <li className="nav-item">
           <button
-            className={`nav-link small fw-semibold d-flex align-items-center gap-2 ${
-              activeTab === 'applications' ? 'active' : ''
-            }`}
+            className={`nav-link small fw-semibold d-flex align-items-center gap-2 ${activeTab === 'applications' ? 'active' : ''
+              }`}
             onClick={() => setActiveTab('applications')}
           >
             <i className="bi bi-file-earmark-text"></i>
@@ -335,9 +332,8 @@ export default function HRDashboard() {
         </li>
         <li className="nav-item">
           <button
-            className={`nav-link small fw-semibold d-flex align-items-center gap-2 ${
-              activeTab === 'positions' ? 'active' : ''
-            }`}
+            className={`nav-link small fw-semibold d-flex align-items-center gap-2 ${activeTab === 'positions' ? 'active' : ''
+              }`}
             onClick={() => setActiveTab('positions')}
           >
             <i className="bi bi-briefcase"></i>
@@ -452,11 +448,10 @@ export default function HRDashboard() {
                                 title="Bấm để xem CV trực tiếp trên web"
                               >
                                 <i
-                                  className={`bi ${
-                                    app.cv_file_type && app.cv_file_type.includes('pdf')
-                                      ? 'bi-file-earmark-pdf-fill text-danger'
-                                      : 'bi-file-earmark-word-fill text-primary'
-                                  }`}
+                                  className={`bi ${app.cv_file_type && app.cv_file_type.includes('pdf')
+                                    ? 'bi-file-earmark-pdf-fill text-danger'
+                                    : 'bi-file-earmark-word-fill text-primary'
+                                    }`}
                                 />
                                 <span className="text-truncate fw-medium" style={{ maxWidth: '170px' }}>
                                   {app.cv_original_name}
@@ -755,9 +750,8 @@ export default function HRDashboard() {
                           <td className="text-end pe-4">
                             <button
                               onClick={() => handleTogglePosition(pos)}
-                              className={`btn btn-sm ${
-                                pos.status === 'OPEN' ? 'btn-outline-danger' : 'btn-outline-success'
-                              }`}
+                              className={`btn btn-sm ${pos.status === 'OPEN' ? 'btn-outline-danger' : 'btn-outline-success'
+                                }`}
                             >
                               {pos.status === 'OPEN' ? 'Đóng tuyển' : 'Mở lại'}
                             </button>

@@ -99,6 +99,7 @@ const MentorController = {
             const {
                 final_review, rating, mentor_recommendation = 'PASS', mentor_offer_recommendation = false,
                 score_discipline, score_competence, score_skills,
+                evaluation_criteria,
                 evaluation_advantages, evaluation_limitations,
                 school_name, student_code, university_class, major_name, academic_year
             } = req.body;
@@ -109,13 +110,29 @@ const MentorController = {
                 return res.status(403).json({ success: false, message: 'Chỉ Mentor phụ trách mới có thể đánh giá.' });
             }
 
-            // Calculate rating if criteria are provided
-            let finalRating = rating !== undefined && rating !== null && rating !== '' ? parseFloat(rating) : null;
-            if (score_discipline !== undefined && score_competence !== undefined && score_skills !== undefined) {
-                const totalScore = (parseFloat(score_discipline) || 0) + (parseFloat(score_competence) || 0) + (parseFloat(score_skills) || 0);
-                if (totalScore > 0) {
-                    finalRating = Math.round(totalScore * 10) / 10;
+            // Calculate section scores from criteria if provided
+            let discScore = score_discipline !== undefined && score_discipline !== null && score_discipline !== '' ? parseFloat(score_discipline) : null;
+            let compScore = score_competence !== undefined && score_competence !== null && score_competence !== '' ? parseFloat(score_competence) : null;
+            let skillScore = score_skills !== undefined && score_skills !== null && score_skills !== '' ? parseFloat(score_skills) : null;
+
+            if (evaluation_criteria && typeof evaluation_criteria === 'object') {
+                const c = evaluation_criteria;
+                if (c.c1_1 !== undefined && c.c1_2 !== undefined && c.c1_3 !== undefined && c.c1_4 !== undefined) {
+                    discScore = Math.round(((parseFloat(c.c1_1) || 0) + (parseFloat(c.c1_2) || 0) + (parseFloat(c.c1_3) || 0) + (parseFloat(c.c1_4) || 0)) * 10) / 10;
                 }
+                if (c.c2_1 !== undefined && c.c2_2 !== undefined && c.c2_3 !== undefined && c.c2_4 !== undefined) {
+                    compScore = Math.round(((parseFloat(c.c2_1) || 0) + (parseFloat(c.c2_2) || 0) + (parseFloat(c.c2_3) || 0) + (parseFloat(c.c2_4) || 0)) * 10) / 10;
+                }
+                if (c.c3_1 !== undefined && c.c3_2 !== undefined && c.c3_3 !== undefined) {
+                    skillScore = Math.round(((parseFloat(c.c3_1) || 0) + (parseFloat(c.c3_2) || 0) + (parseFloat(c.c3_3) || 0)) * 10) / 10;
+                }
+            }
+
+            // Calculate rating if sections are provided
+            let finalRating = rating !== undefined && rating !== null && rating !== '' ? parseFloat(rating) : null;
+            if (discScore !== null && compScore !== null && skillScore !== null) {
+                const totalScore = discScore + compScore + skillScore;
+                finalRating = Math.round(totalScore * 10) / 10;
             }
 
             await InternModel.submitMentorEvaluation(intern.id, {
@@ -123,9 +140,10 @@ const MentorController = {
                 final_review,
                 mentor_recommendation: mentor_recommendation || 'PASS',
                 mentor_offer_recommendation: mentor_offer_recommendation ? 1 : 0,
-                score_discipline: score_discipline ? parseFloat(score_discipline) : null,
-                score_competence: score_competence ? parseFloat(score_competence) : null,
-                score_skills: score_skills ? parseFloat(score_skills) : null,
+                score_discipline: discScore,
+                score_competence: compScore,
+                score_skills: skillScore,
+                evaluation_criteria: evaluation_criteria || null,
                 evaluation_advantages: evaluation_advantages || null,
                 evaluation_limitations: evaluation_limitations || null,
                 school_name: school_name || null,

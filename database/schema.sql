@@ -175,6 +175,7 @@ CREATE TABLE `interns` (
     `score_skills` DECIMAL(3,1) NULL,
     `evaluation_advantages` TEXT NULL,
     `evaluation_limitations` TEXT NULL,
+    `evaluation_criteria` JSON NULL,
     `deal_meeting_status` ENUM('NONE', 'PENDING_HR', 'PENDING_INTERN', 'CONFIRMED', 'COMPLETED', 'CANCELLED') DEFAULT 'NONE',
     `deal_meeting_time` DATETIME NULL,
     `deal_meeting_type` ENUM('OFFLINE', 'ONLINE') DEFAULT 'OFFLINE',

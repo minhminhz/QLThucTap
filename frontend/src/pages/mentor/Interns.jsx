@@ -8,7 +8,51 @@ import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
 import EmptyState from '../../components/common/EmptyState';
 import CvViewerModal from '../../components/common/CvViewerModal';
+import CertificateModal from '../../components/common/CertificateModal';
 import { useNotification } from '../../contexts/NotificationContext';
+
+const SCORE_TEXT = {
+  10: 'Mười điểm',
+  9.5: 'Chín phẩy năm điểm',
+  9: 'Chín điểm',
+  8.5: 'Tám phẩy năm điểm',
+  8: 'Tám điểm',
+  7.5: 'Bảy phẩy năm điểm',
+  7: 'Bảy điểm',
+  6.5: 'Sáu phẩy năm điểm',
+  6: 'Sáu điểm',
+  5.5: 'Năm phẩy năm điểm',
+  5: 'Năm điểm'
+};
+
+function getScoreText(score) {
+  if (!score) return 'Chín điểm';
+  const num = parseFloat(score);
+  return SCORE_TEXT[num] || `${num} điểm`;
+}
+
+function getRatingRank(score) {
+  const num = parseFloat(score || 9);
+  if (num >= 9.0) return 'Xuất sắc';
+  if (num >= 8.0) return 'Giỏi';
+  if (num >= 6.5) return 'Khá';
+  if (num >= 5.0) return 'Trung bình';
+  return 'Không đạt';
+}
+
+const DEFAULT_CRITERIA = {
+  c1_1: 0.5,
+  c1_2: 0.5,
+  c1_3: 0.5,
+  c1_4: 0.5,
+  c2_1: 1.0,
+  c2_2: 1.8,
+  c2_3: 0.9,
+  c2_4: 0.8,
+  c3_1: 0.8,
+  c3_2: 0.9,
+  c3_3: 0.8
+};
 
 export default function MentorInterns() {
   const { notify } = useNotification();
@@ -20,8 +64,20 @@ export default function MentorInterns() {
 
   // Modals
   const [viewingCv, setViewingCv] = useState(null);
+  const [viewingCertificate, setViewingCertificate] = useState(null);
   const [evaluatingIntern, setEvaluatingIntern] = useState(null);
-  const [evalData, setEvalData] = useState({ final_review: '', rating: '9', mentor_recommendation: 'PASS', mentor_offer_recommendation: false });
+  const [evalData, setEvalData] = useState({
+    rating: 9.0,
+    score_discipline: 2.0,
+    score_competence: 4.5,
+    score_skills: 2.5,
+    evaluation_criteria: { ...DEFAULT_CRITERIA },
+    evaluation_advantages: '',
+    evaluation_limitations: '',
+    final_review: '',
+    mentor_recommendation: 'PASS',
+    mentor_offer_recommendation: false
+  });
   const [quickTaskIntern, setQuickTaskIntern] = useState(null);
   const [quickTaskForm, setQuickTaskForm] = useState({ title: '', description: '', deadline: '' });
 
@@ -44,18 +100,107 @@ export default function MentorInterns() {
     fetchData();
   }, []);
 
+  const handleOpenEvaluation = (intern) => {
+    setEvaluatingIntern(intern);
+    let parsedCriteria = null;
+    if (intern.evaluation_criteria) {
+      try {
+        parsedCriteria = typeof intern.evaluation_criteria === 'string'
+          ? JSON.parse(intern.evaluation_criteria)
+          : intern.evaluation_criteria;
+      } catch (e) {
+        parsedCriteria = null;
+      }
+    }
+
+    const disc = intern.score_discipline !== null && intern.score_discipline !== undefined
+      ? parseFloat(intern.score_discipline)
+      : (intern.rating ? (parseFloat(intern.rating) >= 9 ? 2.0 : 1.8) : 2.0);
+    const comp = intern.score_competence !== null && intern.score_competence !== undefined
+      ? parseFloat(intern.score_competence)
+      : (intern.rating ? (parseFloat(intern.rating) >= 9 ? 4.5 : 4.0) : 4.5);
+    const skill = intern.score_skills !== null && intern.score_skills !== undefined
+      ? parseFloat(intern.score_skills)
+      : (intern.rating ? (parseFloat(intern.rating) >= 9 ? 2.5 : 2.2) : 2.5);
+    const total = intern.rating !== null && intern.rating !== undefined
+      ? parseFloat(intern.rating)
+      : Math.round((disc + comp + skill) * 10) / 10;
+
+    const c1_4_val = Math.max(0, Math.round((disc - 1.5) * 10) / 10);
+    const c2_4_val = Math.max(0, Math.round((comp - 3.7) * 10) / 10);
+    const c3_3_val = Math.max(0, Math.round((skill - 1.7) * 10) / 10);
+
+    setEvalData({
+      rating: total,
+      score_discipline: disc,
+      score_competence: comp,
+      score_skills: skill,
+      evaluation_criteria: parsedCriteria || {
+        c1_1: 0.5,
+        c1_2: 0.5,
+        c1_3: 0.5,
+        c1_4: c1_4_val > 0.5 ? 0.5 : (c1_4_val > 0 ? c1_4_val : 0.4),
+        c2_1: 1.0,
+        c2_2: 1.8,
+        c2_3: 0.9,
+        c2_4: c2_4_val > 1.0 ? 1.0 : (c2_4_val > 0 ? c2_4_val : 0.8),
+        c3_1: 0.8,
+        c3_2: 0.9,
+        c3_3: c3_3_val > 1.0 ? 1.0 : (c3_3_val > 0 ? c3_3_val : 0.8)
+      },
+      evaluation_advantages: intern.evaluation_advantages || '',
+      evaluation_limitations: intern.evaluation_limitations || '',
+      final_review: intern.final_review || '',
+      mentor_recommendation: intern.mentor_recommendation || 'PASS',
+      mentor_offer_recommendation: !!intern.mentor_offer_recommendation
+    });
+  };
+
+  const handleCriterionChange = (key, val, maxVal) => {
+    let num = parseFloat(val);
+    if (isNaN(num)) num = 0;
+    if (num < 0) num = 0;
+    if (num > maxVal) num = maxVal;
+
+    const newCriteria = {
+      ...evalData.evaluation_criteria,
+      [key]: num
+    };
+
+    const disc = Math.round(((parseFloat(newCriteria.c1_1) || 0) + (parseFloat(newCriteria.c1_2) || 0) + (parseFloat(newCriteria.c1_3) || 0) + (parseFloat(newCriteria.c1_4) || 0)) * 10) / 10;
+    const comp = Math.round(((parseFloat(newCriteria.c2_1) || 0) + (parseFloat(newCriteria.c2_2) || 0) + (parseFloat(newCriteria.c2_3) || 0) + (parseFloat(newCriteria.c2_4) || 0)) * 10) / 10;
+    const skill = Math.round(((parseFloat(newCriteria.c3_1) || 0) + (parseFloat(newCriteria.c3_2) || 0) + (parseFloat(newCriteria.c3_3) || 0)) * 10) / 10;
+    const total = Math.round((disc + comp + skill) * 10) / 10;
+
+    setEvalData({
+      ...evalData,
+      evaluation_criteria: newCriteria,
+      score_discipline: disc,
+      score_competence: comp,
+      score_skills: skill,
+      rating: total
+    });
+  };
+
   const handleSaveEvaluation = async (e) => {
     e.preventDefault();
     if (!evaluatingIntern) return;
     try {
       await api.patch(`/mentor/interns/${evaluatingIntern.id}/final-review`, {
-        ...evalData,
+        rating: evalData.rating,
+        score_discipline: evalData.score_discipline,
+        score_competence: evalData.score_competence,
+        score_skills: evalData.score_skills,
+        evaluation_criteria: evalData.evaluation_criteria,
+        evaluation_advantages: evalData.evaluation_advantages,
+        evaluation_limitations: evalData.evaluation_limitations,
+        final_review: evalData.final_review,
+        mentor_recommendation: evalData.mentor_recommendation,
         mentor_offer_recommendation: evalData.mentor_offer_recommendation ? 1 : 0
       });
       await fetchData();
       setEvaluatingIntern(null);
-      setEvalData({ final_review: '', rating: '9', mentor_recommendation: 'PASS', mentor_offer_recommendation: false });
-      notify.success('Đã lưu kết quả đánh giá thực tập sinh thành công.', 'Đánh giá thực tập');
+      notify.success('Đã lưu kết quả đánh giá thực tập sinh chuẩn phiếu đánh giá thành công.', 'Đánh giá thực tập');
     } catch (err) {
       notify.error(err.response?.data?.message || 'Có lỗi xảy ra khi lưu đánh giá.', 'Đánh giá thất bại');
     }
@@ -348,15 +493,34 @@ export default function MentorInterns() {
 
                       {/* Evaluation Section */}
                       <div className="p-3 bg-white rounded-3 border mb-3">
-                        <div className="d-flex align-items-center justify-content-between mb-2">
+                        <div className="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                           <div className="d-flex align-items-center gap-1.5">
                             <i className="bi bi-award-fill text-warning fs-5" />
-                            <strong className="small text-dark">Đánh giá của Mentor:</strong>
+                            <strong className="small text-dark">Đánh giá quá trình thực tập:</strong>
                           </div>
                           {intern.rating ? (
-                            <span className="badge bg-warning text-dark fw-bold px-2.5 py-1">
-                              ⭐ {intern.rating} / 10 điểm
-                            </span>
+                            <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                              <span className={`badge ${parseFloat(intern.rating) >= 9 ? 'bg-success' :
+                                parseFloat(intern.rating) >= 8 ? 'bg-primary' :
+                                  parseFloat(intern.rating) >= 6.5 ? 'bg-info text-dark' : 'bg-warning text-dark'
+                                } fw-bold px-2.5 py-1`}>
+                                ⭐ {parseFloat(intern.rating).toFixed(1)} / 10 ({getRatingRank(intern.rating)})
+                              </span>
+                              {intern.mentor_recommendation === 'FAIL' ? (
+                                <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                  <i className="bi bi-x-circle me-1" />Không đạt
+                                </span>
+                              ) : (
+                                <span className="badge bg-success-subtle text-success border border-success-subtle">
+                                  <i className="bi bi-check-circle me-1" />Đạt yêu cầu
+                                </span>
+                              )}
+                              {intern.mentor_offer_recommendation ? (
+                                <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                  <i className="bi bi-star-fill text-warning me-1" /> Đề xuất tuyển dụng
+                                </span>
+                              ) : null}
+                            </div>
                           ) : (
                             <span className="badge bg-light text-muted border small">
                               Chưa có điểm đánh giá
@@ -364,13 +528,48 @@ export default function MentorInterns() {
                           )}
                         </div>
 
+                        {intern.rating && (
+                          <div className="row g-1.5 mb-2.5 text-center" style={{ fontSize: '0.78rem' }}>
+                            <div className="col-4">
+                              <div className="bg-light p-1.5 rounded border">
+                                <span className="text-muted d-block small">1. Kỷ luật (Max 2)</span>
+                                <strong className="text-dark">{intern.score_discipline ? parseFloat(intern.score_discipline).toFixed(1) : '2.0'}</strong>
+                              </div>
+                            </div>
+                            <div className="col-4">
+                              <div className="bg-light p-1.5 rounded border">
+                                <span className="text-muted d-block small">2. Chuyên môn (Max 5)</span>
+                                <strong className="text-dark">{intern.score_competence ? parseFloat(intern.score_competence).toFixed(1) : '4.5'}</strong>
+                              </div>
+                            </div>
+                            <div className="col-4">
+                              <div className="bg-light p-1.5 rounded border">
+                                <span className="text-muted d-block small">3. Kỹ năng (Max 3)</span>
+                                <strong className="text-dark">{intern.score_skills ? parseFloat(intern.score_skills).toFixed(1) : '2.5'}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {intern.final_review ? (
-                          <div className="p-2.5 bg-light rounded text-secondary small border" style={{ whiteSpace: 'pre-wrap' }}>
-                            "{intern.final_review}"
+                          <div className="p-2.5 bg-light rounded text-secondary small border">
+                            {intern.evaluation_advantages && (
+                              <div className="mb-1 text-dark">
+                                <strong className="text-success"><i className="bi bi-check-circle-fill text-success me-1" />Ưu điểm nổi bật:</strong> {intern.evaluation_advantages}
+                              </div>
+                            )}
+                            {intern.evaluation_limitations && (
+                              <div className="mb-1 text-dark">
+                                <strong className="text-warning-emphasis"><i className="bi bi-exclamation-triangle-fill text-warning me-1" />Điểm cần khắc phục:</strong> {intern.evaluation_limitations}
+                              </div>
+                            )}
+                            <div className="fst-italic text-muted mt-1 pt-1 border-top">
+                              <strong>Nhận xét tổng kết:</strong> &ldquo;{intern.final_review}&rdquo;
+                            </div>
                           </div>
                         ) : (
                           <p className="text-muted small mb-0 fst-italic">
-                            Chưa có nhận xét tổng kết. Bạn có thể bấm nút "Đánh giá" bên dưới để ghi nhận xét năng lực cho thực tập sinh.
+                            Chưa có nhận xét tổng kết. Bạn có thể bấm nút "Đánh giá theo mẫu" bên dưới để chấm điểm chi tiết 11 tiêu chí theo chuẩn phiếu đánh giá của trường/doanh nghiệp.
                           </p>
                         )}
                       </div>
@@ -378,22 +577,25 @@ export default function MentorInterns() {
 
                     {/* Card Actions Bar */}
                     <div className="pt-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-2">
-                      <div className="d-flex gap-2">
+                      <div className="d-flex gap-2 flex-wrap">
                         <button
                           type="button"
-                          onClick={() => {
-                            setEvaluatingIntern(intern);
-                            setEvalData({
-                              final_review: intern.final_review || '',
-                              rating: intern.rating ? String(intern.rating) : '9',
-                            });
-                          }}
-                          className={`btn btn-sm d-inline-flex align-items-center gap-1.5 ${
-                            intern.final_review ? 'btn-outline-primary' : 'btn-primary'
-                          } shadow-xs`}
+                          onClick={() => handleOpenEvaluation(intern)}
+                          className={`btn btn-sm d-inline-flex align-items-center gap-1.5 ${intern.final_review ? 'btn-outline-primary' : 'btn-primary'
+                            } shadow-xs`}
                         >
-                          <i className="bi bi-award" />
-                          <span>{intern.final_review ? 'Sửa đánh giá' : 'Đánh giá tổng kết'}</span>
+                          <i className="bi bi-pencil-square" />
+                          <span>{intern.final_review ? 'Sửa đánh giá' : 'Đánh giá theo phiếu'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setViewingCertificate(intern)}
+                          className="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1.5 shadow-xs"
+                          title="Xem trước hoặc tải xuống Phiếu đánh giá & Giấy xác nhận chuẩn khổ A4"
+                        >
+                          <i className="bi bi-file-earmark-check-fill text-success" />
+                          <span>Phiếu đánh giá A4</span>
                         </button>
 
                         <button
@@ -425,140 +627,604 @@ export default function MentorInterns() {
         </div>
       )}
 
-      {/* ================= MODAL ĐÁNH GIÁ TỔNG KẾT ================= */}
+      {/* ================= MODAL ĐÁNH GIÁ TỔNG KẾT (CHUẨN PHIẾU ĐÁNH GIÁ) ================= */}
       {evaluatingIntern && (
         <>
-          <div className="modal show d-block" tabIndex="-1" role="dialog">
-            <div className="modal-dialog modal-dialog-centered" role="document">
-              <div className="modal-content shadow">
-                <div className="modal-header bg-white py-3">
-                  <h5 className="modal-title fw-bold text-dark">
-                    <i className="bi bi-award-fill text-warning me-2"></i>
-                    Đánh giá Thực tập sinh: {evaluatingIntern.intern_name}
-                  </h5>
+          <div
+            className="modal show d-block"
+            tabIndex="-1"
+            role="dialog"
+            style={{ backgroundColor: 'rgba(0,0,0,0.6)', overflowY: 'auto' }}
+          >
+            <div
+              className="modal-dialog modal-xl modal-dialog-centered"
+              role="document"
+              style={{ maxHeight: '92vh', display: 'flex', flexDirection: 'column', margin: '1.5rem auto' }}
+            >
+              <div
+                className="modal-content shadow-lg border-0"
+                style={{ maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+              >
+                {/* Header */}
+                <div className="modal-header bg-dark text-white py-3 px-4 d-flex align-items-center justify-content-between flex-shrink-0">
+                  <div>
+                    <h5 className="modal-title fw-bold text-white d-flex align-items-center gap-2 mb-0">
+                      <i className="bi bi-file-earmark-check-fill text-success fs-4" />
+                      <span>Phiếu Nhận Xét & Đánh Giá Thực Tập: {evaluatingIntern.intern_name}</span>
+                    </h5>
+                  </div>
                   <button
                     type="button"
-                    className="btn-close"
+                    className="btn-close btn-close-white"
                     onClick={() => setEvaluatingIntern(null)}
                     aria-label="Close"
                   />
                 </div>
-                <form onSubmit={handleSaveEvaluation}>
-                  <div className="modal-body p-4">
-                    <div className="bg-light p-3 rounded border mb-3 small">
-                      <div className="row g-2">
-                        <div className="col-6">
-                          <span className="text-muted d-block">Vị trí:</span>
-                          <strong className="text-dark">{evaluatingIntern.position_title}</strong>
-                        </div>
-                        <div className="col-6">
-                          <span className="text-muted d-block">Cơ sở:</span>
-                          <strong className="text-dark">{evaluatingIntern.branch_name || 'Hà Nội'}</strong>
+
+                <form
+                  onSubmit={handleSaveEvaluation}
+                  style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: '1 1 auto', minHeight: 0 }}
+                >
+                  <div
+                    className="modal-body p-4 bg-light"
+                    style={{ overflowY: 'auto', flex: '1 1 auto', WebkitOverflowScrolling: 'touch' }}
+                  >
+                    {/* Candidate Info Bar */}
+                    <div className="card border shadow-xs mb-4">
+                      <div className="card-body p-3 bg-white">
+                        <div className="d-flex align-items-center gap-3">
+                          <div
+                            className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-xs flex-shrink-0"
+                            style={{ width: '46px', height: '46px', fontSize: '1.25rem' }}
+                          >
+                            {evaluatingIntern.intern_name?.[0]?.toUpperCase() || 'I'}
+                          </div>
+                          <div className="small">
+                            <div className="fw-bold text-dark fs-6">{evaluatingIntern.intern_name}</div>
+                            <div className="text-muted">
+                              <span className="me-2"><i className="bi bi-briefcase me-1 text-primary" />{evaluatingIntern.position_title}</span>
+                              <span className="me-2">•</span>
+                              <span><i className="bi bi-geo-alt me-1 text-danger" />{evaluatingIntern.branch_name || 'Hà Nội'}</span>
+                              {evaluatingIntern.student_code && (
+                                <>
+                                  <span className="mx-2">•</span>
+                                  <span>MSSV: <strong>{evaluatingIntern.student_code}</strong></span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mb-3">
-                      <label className="form-label small fw-semibold" htmlFor="eval_rating">
-                        Điểm số đánh giá tổng kết (Thang điểm 1 - 10) <span className="text-danger">*</span>
-                      </label>
-                      <div className="d-flex align-items-center gap-3">
-                        <input
-                          id="eval_rating"
-                          type="number"
-                          min="1"
-                          max="10"
-                          step="0.5"
-                          value={evalData.rating}
-                          onChange={(e) => setEvalData({ ...evalData, rating: e.target.value })}
-                          required
-                          className="form-control"
-                          style={{ maxWidth: '120px' }}
-                        />
-                        <span className="small text-muted">
-                          (Ví dụ: 8.5: Khá tốt | 9.0: Xuất sắc | 10: Vượt kỳ vọng)
-                        </span>
+                    {/* SECTION 1: NỘI DUNG ĐÁNH GIÁ & TIÊU CHÍ CHẤM ĐIỂM (CHUẨN BỘ GD&ĐT) */}
+                    <div className="card border shadow-xs mb-4">
+                      <div className="card-header bg-white py-2.5 px-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Phần I</span>
+                          <strong className="text-dark small text-uppercase">
+                            Nội dung đánh giá & tiêu chí chấm điểm
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="card-body p-0 table-responsive">
+                        <table className="table table-bordered table-hover mb-0 align-middle small">
+                          <thead className="table-light text-center">
+                            <tr>
+                              <th style={{ width: '60px' }}>TT</th>
+                              <th>Nội dung và tiêu chí đánh giá</th>
+                              <th style={{ width: '100px' }}>Điểm Max</th>
+                              <th style={{ width: '130px' }}>Điểm đánh giá</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {/* NHÓM 1 */}
+                            <tr className="table-secondary fw-bold">
+                              <td className="text-center">1</td>
+                              <td colSpan="3">Ý THỨC TỔ CHỨC KỶ LUẬT VÀ TÁC PHONG LÀM VIỆC (TỐI ĐA 2.0 ĐIỂM)</td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">1.1</td>
+                              <td>Chấp hành nghiêm chỉnh nội quy, quy chế và bảo mật công ty</td>
+                              <td className="text-center text-muted">0.5</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="0.5"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c1_1}
+                                  onChange={(e) => handleCriterionChange('c1_1', e.target.value, 0.5)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">1.2</td>
+                              <td>Chấp hành giờ giấc làm việc, đi làm đúng giờ, nghỉ có phép</td>
+                              <td className="text-center text-muted">0.5</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="0.5"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c1_2}
+                                  onChange={(e) => handleCriterionChange('c1_2', e.target.value, 0.5)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">1.3</td>
+                              <td>Tác phong làm việc nghiêm túc, giao tiếp văn minh chuẩn mực</td>
+                              <td className="text-center text-muted">0.5</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="0.5"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c1_3}
+                                  onChange={(e) => handleCriterionChange('c1_3', e.target.value, 0.5)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">1.4</td>
+                              <td>Tinh thần cầu thị, trung thực và tinh thần trách nhiệm cao</td>
+                              <td className="text-center text-muted">0.5</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="0.5"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c1_4}
+                                  onChange={(e) => handleCriterionChange('c1_4', e.target.value, 0.5)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr className="table-success fw-bold">
+                              <td colSpan="2" className="text-end">Cộng mục 1 (Ý thức kỷ luật):</td>
+                              <td className="text-center">2.0</td>
+                              <td className="text-center text-success fs-6">
+                                {evalData.score_discipline.toFixed(1)}
+                              </td>
+                            </tr>
+
+                            {/* NHÓM 2 */}
+                            <tr className="table-secondary fw-bold">
+                              <td className="text-center">2</td>
+                              <td colSpan="3">NĂNG LỰC CHUYÊN MÔN VÀ KẾT QUẢ THỰC HIỆN CÔNG VIỆC (TỐI ĐA 5.0 ĐIỂM)</td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">2.1</td>
+                              <td>Khả năng tiếp thu hướng dẫn, nắm bắt quy trình công việc</td>
+                              <td className="text-center text-muted">1.0</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="1.0"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c2_1}
+                                  onChange={(e) => handleCriterionChange('c2_1', e.target.value, 1.0)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">2.2</td>
+                              <td>Vận dụng kiến thức học đường vào giải quyết công việc thực tế</td>
+                              <td className="text-center text-muted">2.0</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="2.0"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c2_2}
+                                  onChange={(e) => handleCriterionChange('c2_2', e.target.value, 2.0)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">2.3</td>
+                              <td>Kỹ năng giải quyết vấn đề, xử lý tình huống nghiệp vụ phát sinh</td>
+                              <td className="text-center text-muted">1.0</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="1.0"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c2_3}
+                                  onChange={(e) => handleCriterionChange('c2_3', e.target.value, 1.0)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">2.4</td>
+                              <td>Chất lượng sản phẩm và tiến độ hoàn thành các nhiệm vụ được giao</td>
+                              <td className="text-center text-muted">1.0</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="1.0"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c2_4}
+                                  onChange={(e) => handleCriterionChange('c2_4', e.target.value, 1.0)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr className="table-success fw-bold">
+                              <td colSpan="2" className="text-end">Cộng mục 2 (Năng lực chuyên môn):</td>
+                              <td className="text-center">5.0</td>
+                              <td className="text-center text-success fs-6">
+                                {evalData.score_competence.toFixed(1)}
+                              </td>
+                            </tr>
+
+                            {/* NHÓM 3 */}
+                            <tr className="table-secondary fw-bold">
+                              <td className="text-center">3</td>
+                              <td colSpan="3">KỸ NĂNG MỀM VÀ KHẢ NĂNG HÒA NHẬP MÔI TRƯỜNG (TỐI ĐA 3.0 ĐIỂM)</td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">3.1</td>
+                              <td>Khả năng giao tiếp, trình bày và báo cáo công việc</td>
+                              <td className="text-center text-muted">1.0</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="1.0"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c3_1}
+                                  onChange={(e) => handleCriterionChange('c3_1', e.target.value, 1.0)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">3.2</td>
+                              <td>Tinh thần làm việc nhóm, phối hợp tốt với đồng nghiệp</td>
+                              <td className="text-center text-muted">1.0</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="1.0"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c3_2}
+                                  onChange={(e) => handleCriterionChange('c3_2', e.target.value, 1.0)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="text-center text-muted">3.3</td>
+                              <td>Tính chủ động, sáng tạo và tự học nâng cao trình độ</td>
+                              <td className="text-center text-muted">1.0</td>
+                              <td className="text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="1.0"
+                                  step="0.1"
+                                  value={evalData.evaluation_criteria.c3_3}
+                                  onChange={(e) => handleCriterionChange('c3_3', e.target.value, 1.0)}
+                                  className="form-control form-control-sm text-center fw-bold text-primary mx-auto"
+                                  style={{ maxWidth: '85px' }}
+                                />
+                              </td>
+                            </tr>
+                            <tr className="table-success fw-bold">
+                              <td colSpan="2" className="text-end">Cộng mục 3 (Kỹ năng mềm):</td>
+                              <td className="text-center">3.0</td>
+                              <td className="text-center text-success fs-6">
+                                {evalData.score_skills.toFixed(1)}
+                              </td>
+                            </tr>
+
+                            {/* TỔNG ĐIỂM */}
+                            <tr className="table-primary fw-bold fs-6">
+                              <td colSpan="2" className="text-end text-uppercase">TỔNG ĐIỂM TOÀN BỘ (THANG 10):</td>
+                              <td className="text-center">10.0</td>
+                              <td className="text-center text-danger fw-bolder fs-5">
+                                {evalData.rating.toFixed(1)}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Summary banner */}
+                      <div className="card-footer bg-light p-3 border-top">
+                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                          <div>
+                            <span className="text-muted me-2">Điểm số bằng chữ:</span>
+                            <strong className="text-primary">{getScoreText(evalData.rating)}</strong>
+                          </div>
+                          <div>
+                            <span className="text-muted me-2">Xếp loại kết quả:</span>
+                            <span className={`badge ${evalData.rating >= 9.0 ? 'bg-success' :
+                              evalData.rating >= 8.0 ? 'bg-primary' :
+                                evalData.rating >= 6.5 ? 'bg-info text-dark' : 'bg-warning text-dark'
+                              } fs-6 px-3 py-1`}>
+                              {getRatingRank(evalData.rating)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="mb-3">
-                      <label className="form-label small fw-semibold" htmlFor="eval_review">
-                        Nhận xét quá trình thực tập & năng lực chuyên môn <span className="text-danger">*</span>
-                      </label>
-                      <textarea
-                        id="eval_review"
-                        rows={5}
-                        value={evalData.final_review}
-                        onChange={(e) => setEvalData({ ...evalData, final_review: e.target.value })}
-                        required
-                        placeholder="Đánh giá chi tiết về:&#10;1. Thái độ học hỏi, tinh thần kỷ luật và tuân thủ quy trình.&#10;2. Khả năng tiếp thu kiến thức và tư duy giải quyết vấn đề.&#10;3. Chất lượng mã nguồn/sản phẩm đầu ra và sự chủ động trong dự án."
-                        className="form-control"
-                      />
-                    </div>
+                    {/* SECTION 2: Ý KIẾN NHẬN XÉT CỦA ĐƠN VỊ TIẾP NHẬN */}
+                    <div className="card border shadow-xs mb-4">
+                      <div className="card-header bg-white py-2.5 px-3 border-bottom d-flex align-items-center gap-2">
+                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">Phần II</span>
+                        <strong className="text-dark small text-uppercase">
+                          Ý kiến nhận xét chi tiết của Cán bộ hướng dẫn / Doanh nghiệp
+                        </strong>
+                      </div>
 
-                    <div className="mb-3">
-                      <label className="form-label small fw-semibold">Kết quả đề xuất <span className="text-danger">*</span></label>
-                      <div className="d-flex gap-3">
-                        <div className="form-check">
-                          <input
-                            className="form-check-input"
-                            type="radio"
-                            id="rec_pass"
-                            name="mentor_recommendation"
-                            value="PASS"
-                            checked={evalData.mentor_recommendation === 'PASS'}
-                            onChange={(e) => setEvalData({ ...evalData, mentor_recommendation: e.target.value })}
+                      <div className="card-body p-3">
+                        {/* 1. Ưu điểm nổi bật */}
+                        <div className="mb-3">
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <label className="form-label small fw-semibold text-dark mb-0">
+                              1. Ưu điểm nổi bật của thực tập sinh:
+                            </label>
+                            <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                              (Ghi nhận về thái độ, thế mạnh chuyên môn, tốc độ hòa nhập)
+                            </span>
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={evalData.evaluation_advantages}
+                            onChange={(e) => setEvalData({ ...evalData, evaluation_advantages: e.target.value })}
+                            placeholder="Ví dụ: Có tinh thần tự học cao, chủ động nghiên cứu công nghệ mới, hòa nhập nhanh với team và có trách nhiệm cao trong công việc..."
+                            className="form-control form-control-sm"
                           />
-                          <label className="form-check-label text-success fw-semibold" htmlFor="rec_pass">
-                            <i className="bi bi-check-circle-fill me-1" />Đạt yêu cầu
-                          </label>
+                          <div className="d-flex gap-1.5 mt-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline-secondary py-0.5 px-2"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => setEvalData({
+                                ...evalData,
+                                evaluation_advantages: (evalData.evaluation_advantages ? evalData.evaluation_advantages + ' ' : '') + 'Chủ động học hỏi, nắm bắt nhanh yêu cầu công việc.'
+                              })}
+                            >
+                              + Chủ động học hỏi
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline-secondary py-0.5 px-2"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => setEvalData({
+                                ...evalData,
+                                evaluation_advantages: (evalData.evaluation_advantages ? evalData.evaluation_advantages + ' ' : '') + 'Ý thức kỷ luật tốt, đi làm đầy đủ đúng giờ.'
+                              })}
+                            >
+                              + Kỷ luật tốt
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline-secondary py-0.5 px-2"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => setEvalData({
+                                ...evalData,
+                                evaluation_advantages: (evalData.evaluation_advantages ? evalData.evaluation_advantages + ' ' : '') + 'Phối hợp làm việc nhóm hiệu quả, tinh thần trách nhiệm cao.'
+                              })}
+                            >
+                              + Tinh thần đồng đội
+                            </button>
+                          </div>
                         </div>
-                        <div className="form-check">
-                          <input
-                            className="form-check-input"
-                            type="radio"
-                            id="rec_fail"
-                            name="mentor_recommendation"
-                            value="FAIL"
-                            checked={evalData.mentor_recommendation === 'FAIL'}
-                            onChange={(e) => setEvalData({ ...evalData, mentor_recommendation: e.target.value })}
+
+                        {/* 2. Điểm cần khắc phục */}
+                        <div className="mb-3">
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <label className="form-label small fw-semibold text-dark mb-0">
+                              2. Điểm cần khắc phục / hoàn thiện thêm:
+                            </label>
+                            <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                              (Góp ý để sinh viên hoàn thiện kỹ năng sau khi tốt nghiệp)
+                            </span>
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={evalData.evaluation_limitations}
+                            onChange={(e) => setEvalData({ ...evalData, evaluation_limitations: e.target.value })}
+                            placeholder="Ví dụ: Cần trau dồi thêm kinh nghiệm xử lý các hệ thống thực tế quy mô lớn và nâng cao tốc độ tối ưu mã nguồn..."
+                            className="form-control form-control-sm"
                           />
-                          <label className="form-check-label text-danger fw-semibold" htmlFor="rec_fail">
-                            <i className="bi bi-x-circle-fill me-1" />Không đạt
-                          </label>
+                          <div className="d-flex gap-1.5 mt-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline-secondary py-0.5 px-2"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => setEvalData({
+                                ...evalData,
+                                evaluation_limitations: (evalData.evaluation_limitations ? evalData.evaluation_limitations + ' ' : '') + 'Cần tích lũy thêm kinh nghiệm thực chiến với dự án quy mô lớn.'
+                              })}
+                            >
+                              + Tích lũy kinh nghiệm lớn
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline-secondary py-0.5 px-2"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => setEvalData({
+                                ...evalData,
+                                evaluation_limitations: (evalData.evaluation_limitations ? evalData.evaluation_limitations + ' ' : '') + 'Cần tự tin hơn khi trình bày báo cáo kỹ thuật trước team.'
+                              })}
+                            >
+                              + Tự tin thuyết trình
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline-secondary py-0.5 px-2"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => setEvalData({
+                                ...evalData,
+                                evaluation_limitations: (evalData.evaluation_limitations ? evalData.evaluation_limitations + ' ' : '') + 'Cần tối ưu kỹ năng quản lý thời gian và lập kế hoạch.'
+                              })}
+                            >
+                              + Quản lý thời gian
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 3. Nhận xét tổng kết */}
+                        <div className="mb-0">
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <label className="form-label small fw-semibold text-dark mb-0">
+                              3. Nhận xét tổng kết toàn bộ kỳ thực tập <span className="text-danger">*</span>
+                            </label>
+                            <span className="text-danger" style={{ fontSize: '0.75rem' }}>
+                              * Bắt buộc hiển thị vào Phiếu đánh giá A4 & Giấy xác nhận
+                            </span>
+                          </div>
+                          <textarea
+                            rows={3}
+                            required
+                            value={evalData.final_review}
+                            onChange={(e) => setEvalData({ ...evalData, final_review: e.target.value })}
+                            placeholder="Nhận xét tổng kết mức độ hoàn thành nhiệm vụ và sự trưởng thành của sinh viên sau kỳ thực tập..."
+                            className="form-control form-control-sm"
+                          />
                         </div>
                       </div>
                     </div>
 
-                    <div className="form-check form-switch mb-2">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="offer_recommend"
-                        checked={evalData.mentor_offer_recommendation}
-                        onChange={(e) => setEvalData({ ...evalData, mentor_offer_recommendation: e.target.checked })}
-                      />
-                      <label className="form-check-label small" htmlFor="offer_recommend">
-                        <i className="bi bi-star-fill text-warning me-1" />
-                        Đề xuất tuyển dụng chính thức (nếu TTS đủ tiêu chuẩn)
-                      </label>
-                    </div>
-                    <div className="alert alert-info py-2 px-3 small mb-0">
-                      <i className="bi bi-info-circle me-1" />
-                      Sau khi Mentor hoàn thành đánh giá, HR sẽ tổng hợp kết quả và xác nhận hoàn thành kỳ thực tập.
+                    {/* SECTION 3: KẾT QUẢ ĐỀ XUẤT CỦA CÁN BỘ HƯỚNG DẪN */}
+                    <div className="card border shadow-xs mb-2">
+                      <div className="card-header bg-white py-2.5 px-3 border-bottom d-flex align-items-center gap-2">
+                        <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">Phần III</span>
+                        <strong className="text-dark small text-uppercase">
+                          Kết quả đề xuất & định hướng nhân sự
+                        </strong>
+                      </div>
+
+                      <div className="card-body p-3">
+                        <div className="row g-3 align-items-center">
+                          <div className="col-12 col-md-6">
+                            <label className="form-label small fw-semibold d-block mb-1.5">Kết luận hoàn thành kỳ thực tập: <span className="text-danger">*</span></label>
+                            <div className="d-flex gap-4">
+                              <div className="form-check">
+                                <input
+                                  className="form-check-input"
+                                  type="radio"
+                                  id="rec_pass"
+                                  name="mentor_recommendation"
+                                  value="PASS"
+                                  checked={evalData.mentor_recommendation === 'PASS'}
+                                  onChange={(e) => setEvalData({ ...evalData, mentor_recommendation: e.target.value })}
+                                />
+                                <label className="form-check-label text-success fw-bold" htmlFor="rec_pass">
+                                  <i className="bi bi-check-circle-fill me-1" />ĐẠT YÊU CẦU (PASS)
+                                </label>
+                              </div>
+                              <div className="form-check">
+                                <input
+                                  className="form-check-input"
+                                  type="radio"
+                                  id="rec_fail"
+                                  name="mentor_recommendation"
+                                  value="FAIL"
+                                  checked={evalData.mentor_recommendation === 'FAIL'}
+                                  onChange={(e) => setEvalData({ ...evalData, mentor_recommendation: e.target.value })}
+                                />
+                                <label className="form-check-label text-danger fw-bold" htmlFor="rec_fail">
+                                  <i className="bi bi-x-circle-fill me-1" />KHÔNG ĐẠT (FAIL)
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="col-12 col-md-6">
+                            <div className="p-2.5 bg-warning bg-opacity-10 rounded border border-warning-subtle">
+                              <div className="form-check form-switch mb-0">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id="offer_recommend"
+                                  checked={evalData.mentor_offer_recommendation}
+                                  onChange={(e) => setEvalData({ ...evalData, mentor_offer_recommendation: e.target.checked })}
+                                />
+                                <label className="form-check-label small fw-semibold text-dark" htmlFor="offer_recommend">
+                                  <i className="bi bi-star-fill text-warning me-1.5" />
+                                  Đề xuất tiếp nhận làm nhân viên chính thức (Offer job)
+                                </label>
+                              </div>
+                              <div className="text-muted mt-1" style={{ fontSize: '0.75rem', paddingLeft: '2.5rem' }}>
+                                HR sẽ nhận được thông báo đề xuất này để tiến hành quy trình phỏng vấn & đàm phán hợp đồng.
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="modal-footer bg-light py-2">
+
+                  {/* Modal Footer */}
+                  <div className="modal-footer bg-white py-2.5 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2 border-top flex-shrink-0">
                     <button
                       type="button"
                       onClick={() => setEvaluatingIntern(null)}
-                      className="btn btn-sm btn-outline-secondary"
+                      className="btn btn-sm btn-outline-secondary px-3"
                     >
-                      Hủy bỏ
+                      Đóng
                     </button>
-                    <button type="submit" className="btn btn-sm btn-primary fw-semibold px-4">
-                      Lưu kết quả đánh giá
-                    </button>
+
+                    <div className="d-flex align-items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewingCertificate({
+                            ...evaluatingIntern,
+                            ...evalData,
+                            rating: evalData.rating,
+                            score_discipline: evalData.score_discipline,
+                            score_competence: evalData.score_competence,
+                            score_skills: evalData.score_skills,
+                            evaluation_criteria: evalData.evaluation_criteria,
+                            evaluation_advantages: evalData.evaluation_advantages,
+                            evaluation_limitations: evalData.evaluation_limitations,
+                            final_review: evalData.final_review
+                          });
+                        }}
+                        className="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1.5"
+                      >
+                        <i className="bi bi-eye-fill text-success" />
+                        <span>Xem trước Phiếu đánh giá A4</span>
+                      </button>
+
+                      <button type="submit" className="btn btn-sm btn-primary fw-semibold px-4 shadow-sm">
+                        <i className="bi bi-floppy2-fill me-1" />
+                        Lưu kết quả đánh giá
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>
@@ -657,6 +1323,18 @@ export default function MentorInterns() {
         onClose={() => setViewingCv(null)}
         cv={viewingCv}
       />
+
+      {/* Modal xem / in Phiếu đánh giá & Giấy xác nhận chuẩn khổ A4 */}
+      {viewingCertificate && (
+        <CertificateModal
+          internship={viewingCertificate}
+          onClose={() => setViewingCertificate(null)}
+          onUpdate={(updatedData) => {
+            setViewingCertificate(updatedData);
+            fetchData();
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }
